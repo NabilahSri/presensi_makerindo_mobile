@@ -1087,25 +1087,27 @@ class MobileApiTest extends TestCase
         Storage::disk('public')->assertMissing($secondPath);
     }
 
-    public function test_leave_overlap_sakit_backdate_limit_and_cross_midnight_checkout(): void
+    public function test_leave_overlap_sakit_flexible_date_and_cross_midnight_checkout(): void
     {
         Storage::fake('public');
 
         $employee = User::where('email', 'karyawan@test.com')->first();
         $token = $employee->createToken('edge-policy-test')->plainTextToken;
         $plus10Days = now()->addDays(10)->toDateString();
-        $tooOldSakit = now()->subDays(10)->toDateString();
+        $pastSakitDate = now()->subDays(10)->toDateString();
+        Attendance::where('user_id', $employee->id)->whereDate('date', $pastSakitDate)->delete();
 
-        // 1. SAKIT lebih dari 7 hari ke belakang wajib ditolak (422)
+        // 1. SAKIT bersifat fleksibel (tanpa batas mundur 7 hari) selama belum ada presensi masuk/izin bentrok
         $this->withHeader('Authorization', 'Bearer '.$token)
             ->postJson('/api/leaves', [
                 'type' => 'SAKIT',
-                'start_date' => $tooOldSakit,
-                'end_date' => $tooOldSakit,
-                'reason' => 'Sakit 10 hari lalu',
+                'start_date' => $pastSakitDate,
+                'end_date' => $pastSakitDate,
+                'reason' => 'Sakit dirawat 10 hari lalu',
             ])
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('start_date');
+            ->assertStatus(201)
+            ->assertJsonPath('auto_approved', true)
+            ->assertJsonPath('data.status', 'APPROVED');
 
         // 2. Pengajuan tanggal bentrok dengan pengajuan aktif wajib ditolak (422)
         $this->withHeader('Authorization', 'Bearer '.$token)

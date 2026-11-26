@@ -910,19 +910,6 @@ class MobileApiController extends Controller
                 ], 422);
             }
         } elseif ($type === 'SAKIT') {
-            $minSakitDate = $today->copy()->subDays(7);
-            if ($startDate->lt($minSakitDate)) {
-                $minFormatted = $minSakitDate->translatedFormat('d M Y');
-
-                return response()->json([
-                    'success' => false,
-                    'message' => "Pengajuan Sakit maksimal dapat diajukan mundur 7 hari ke belakang (paling lama {$minFormatted}).",
-                    'errors' => [
-                        'start_date' => ["Tanggal mulai Sakit paling lama 7 hari ke belakang ({$minSakitDate->toDateString()})."],
-                    ],
-                ], 422);
-            }
-
             $alreadyPresent = Attendance::where('user_id', $user->id)
                 ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
                 ->where(function ($q) {
