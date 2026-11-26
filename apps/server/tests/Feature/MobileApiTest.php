@@ -1166,4 +1166,32 @@ class MobileApiTest extends TestCase
         $this->assertNotNull($crossOut->json('attendance.time_out'));
         $this->assertGreaterThan(0, (int) $crossOut->json('overtime_hours'));
     }
+
+    public function test_api_responses_include_no_cache_headers(): void
+    {
+        $brandingResponse = $this->getJson('/api/branding');
+        $brandingResponse->assertOk();
+        $cacheControl = strtolower((string) $brandingResponse->headers->get('Cache-Control'));
+        $this->assertStringContainsString('no-store', $cacheControl);
+        $this->assertStringContainsString('no-cache', $cacheControl);
+        $this->assertStringContainsString('max-age=0', $cacheControl);
+        $this->assertSame('no-cache', strtolower((string) $brandingResponse->headers->get('Pragma')));
+
+        $loginResponse = $this->postJson('/api/login', [
+            'email' => 'karyawan@test.com',
+            'password' => 'password',
+            'device_name' => 'Flutter-NoCache-Test',
+        ]);
+        $loginResponse->assertOk();
+        $token = $loginResponse->json('access_token');
+
+        foreach (['/api/profile', '/api/attendance/today'] as $endpoint) {
+            $resp = $this->withHeader('Authorization', 'Bearer '.$token)
+                ->getJson($endpoint);
+            $resp->assertOk();
+            $cc = strtolower((string) $resp->headers->get('Cache-Control'));
+            $this->assertStringContainsString('no-store', $cc);
+            $this->assertStringContainsString('no-cache', $cc);
+        }
+    }
 }

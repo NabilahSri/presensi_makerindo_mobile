@@ -13,6 +13,12 @@ class Setting extends Model
 
     protected static ?array $brandCache = null;
 
+    protected static function booted(): void
+    {
+        static::saved(fn () => self::clearBrandCache());
+        static::deleted(fn () => self::clearBrandCache());
+    }
+
     public static function getValue(string $key, $default = null)
     {
         $setting = self::where('key', $key)->first();
