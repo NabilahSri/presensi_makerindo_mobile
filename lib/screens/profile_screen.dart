@@ -277,7 +277,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 4),
               const Text(
-                'Pilih sumber foto baru (format JPG, PNG, atau WEBP maks. 3 MB).',
+                'Pilih sumber foto baru (format JPG, PNG, atau WEBP maks. 5 MB).',
                 style: TextStyle(fontSize: 12, color: ChronoColors.textMuted),
               ),
               const SizedBox(height: 12),

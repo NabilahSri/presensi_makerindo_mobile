@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -133,6 +134,10 @@ class ApiService {
       return _decodeResponse(response);
     } on ApiException {
       rethrow;
+    } on TimeoutException {
+      throw const ApiException(
+        'Waktu koneksi ke server habis. Silakan periksa jaringan Anda dan coba lagi.',
+      );
     } on SocketException {
       throw const ApiException(
         'Tidak dapat terhubung ke server Presensi Makerindo. Periksa koneksi internet atau alamat server API.',
@@ -211,6 +216,10 @@ class ApiService {
       );
     } on ApiException {
       rethrow;
+    } on TimeoutException {
+      throw const ApiException(
+        'Waktu koneksi ke server habis. Silakan periksa jaringan Anda dan coba lagi.',
+      );
     } on SocketException {
       throw const ApiException('Tidak dapat terhubung ke server saat mengunggah foto profil.');
     } catch (e) {
@@ -278,6 +287,10 @@ class ApiService {
       return json['message']?.toString() ?? 'Presensi masuk berhasil dicatat.';
     } on ApiException {
       rethrow;
+    } on TimeoutException {
+      throw const ApiException(
+        'Waktu koneksi ke server habis. Silakan periksa jaringan Anda dan coba lagi.',
+      );
     } on SocketException {
       throw const ApiException('Tidak dapat terhubung ke server saat mengirim foto presensi.');
     } catch (e) {
@@ -306,6 +319,10 @@ class ApiService {
       );
     } on ApiException {
       rethrow;
+    } on TimeoutException {
+      throw const ApiException(
+        'Waktu koneksi ke server habis. Silakan periksa jaringan Anda dan coba lagi.',
+      );
     } on SocketException {
       throw const ApiException('Tidak dapat terhubung ke server saat mengirim foto presensi pulang.');
     } catch (e) {
@@ -410,6 +427,10 @@ class ApiService {
       return json['message']?.toString() ?? 'Pengajuan berhasil dikirim.';
     } on ApiException {
       rethrow;
+    } on TimeoutException {
+      throw const ApiException(
+        'Waktu koneksi ke server habis. Silakan periksa jaringan Anda dan coba lagi.',
+      );
     } on SocketException {
       throw const ApiException('Tidak dapat terhubung ke server saat mengirim pengajuan.');
     } catch (e) {
@@ -442,6 +463,10 @@ class ApiService {
       return json['message']?.toString() ?? 'Pengajuan perizinan berhasil diperbarui.';
     } on ApiException {
       rethrow;
+    } on TimeoutException {
+      throw const ApiException(
+        'Waktu koneksi ke server habis. Silakan periksa jaringan Anda dan coba lagi.',
+      );
     } on SocketException {
       throw const ApiException('Tidak dapat terhubung ke server saat memperbarui pengajuan.');
     } catch (e) {
