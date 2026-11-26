@@ -885,15 +885,12 @@ class MobileApiController extends Controller
                 ], 422);
             }
         } elseif ($type === 'WFA') {
-            $minStart = $today->copy()->addDay();
-            if ($startDate->lt($minStart)) {
-                $minFormatted = $minStart->translatedFormat('d M Y');
-
+            if ($startDate->lt($today)) {
                 return response()->json([
                     'success' => false,
-                    'message' => "Pengajuan WFA harus dilakukan minimal 1 hari sebelumnya. Tanggal mulai paling cepat adalah {$minFormatted}.",
+                    'message' => 'Pengajuan WFA tidak dapat menggunakan tanggal yang sudah lewat.',
                     'errors' => [
-                        'start_date' => ["Pengajuan WFA minimal 1 hari sebelumnya (mulai {$minStart->toDateString()})."],
+                        'start_date' => ["Tanggal mulai WFA minimal hari ini ({$today->toDateString()})."],
                     ],
                 ], 422);
             }

@@ -857,13 +857,14 @@ class MobileApiTest extends TestCase
             ->assertStatus(201)
             ->assertJsonPath('data.status', 'PENDING');
 
-        // 3. WFH wajib minimal H-1 (1 hari sebelumnya)
+        // 3. WFH/WFA dapat diajukan mulai hari ini (tidak perlu H-1), hanya menolak tanggal yang sudah lewat
+        $yesterdayDate = now()->subDay()->toDateString();
         $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/leaves', [
                 'type' => 'WFH',
-                'start_date' => $today,
-                'end_date' => $today,
-                'reason' => 'WFH hari ini harus ditolak',
+                'start_date' => $yesterdayDate,
+                'end_date' => $yesterdayDate,
+                'reason' => 'WFH tanggal lewat harus ditolak',
             ])
             ->assertStatus(422)
             ->assertJsonValidationErrors('start_date');
@@ -871,9 +872,9 @@ class MobileApiTest extends TestCase
         $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/leaves', [
                 'type' => 'WFH',
-                'start_date' => $tomorrow,
-                'end_date' => $tomorrow,
-                'reason' => 'WFH besok',
+                'start_date' => $today,
+                'end_date' => $today,
+                'reason' => 'WFH hari ini',
             ])
             ->assertStatus(201)
             ->assertJsonPath('data.type', 'WFA')
