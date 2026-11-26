@@ -977,8 +977,8 @@ class _CreateLeaveSheetState extends State<_CreateLeaveSheet> {
   DateTime _minStartDateForType(String type) {
     return switch (type) {
       'CUTI' => _todayOnly.add(const Duration(days: 7)),
-      'IZIN' || 'WFA' => _todayOnly.add(const Duration(days: 1)),
-      'TUGAS_LUAR' => _todayOnly,
+      'IZIN' => _todayOnly.add(const Duration(days: 1)),
+      'TUGAS_LUAR' || 'WFA' => _todayOnly,
       _ => DateTime(2020, 1, 1), // SAKIT fleksibel tanpa batas 7 hari
     };
   }
@@ -986,7 +986,7 @@ class _CreateLeaveSheetState extends State<_CreateLeaveSheet> {
   DateTime _defaultStartDateForType(String type) {
     return switch (type) {
       'CUTI' => _todayOnly.add(const Duration(days: 7)),
-      'IZIN' || 'WFA' => _todayOnly.add(const Duration(days: 1)),
+      'IZIN' => _todayOnly.add(const Duration(days: 1)),
       _ => _todayOnly,
     };
   }
@@ -1002,7 +1002,7 @@ class _CreateLeaveSheetState extends State<_CreateLeaveSheet> {
           false,
         ),
       'WFA' => (
-          'Pengajuan WFA wajib minimal 1 hari sebelumnya dan menunggu persetujuan atasan.',
+          'Pengajuan WFA dapat diajukan mulai hari ini dan menunggu persetujuan atasan. Setelah disetujui, presensi dapat dilakukan melalui Kamera & GPS.',
           false,
         ),
       'TUGAS_LUAR' => (
@@ -1045,7 +1045,10 @@ class _CreateLeaveSheetState extends State<_CreateLeaveSheet> {
     final defDate = _defaultStartDateForType(newType);
     setState(() {
       _type = newType;
-      if (_startDate.isBefore(minDate) || newType == 'SAKIT' || newType == 'TUGAS_LUAR') {
+      if (_startDate.isBefore(minDate) ||
+          newType == 'SAKIT' ||
+          newType == 'TUGAS_LUAR' ||
+          newType == 'WFA') {
         _startDate = defDate;
         _endDate = defDate;
       } else if (_endDate.isBefore(_startDate)) {
