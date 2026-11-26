@@ -979,7 +979,7 @@ class _CreateLeaveSheetState extends State<_CreateLeaveSheet> {
       'CUTI' => _todayOnly.add(const Duration(days: 7)),
       'IZIN' || 'WFA' => _todayOnly.add(const Duration(days: 1)),
       'TUGAS_LUAR' => _todayOnly,
-      _ => _todayOnly.subtract(const Duration(days: 7)), // SAKIT fleksibel
+      _ => DateTime(2020, 1, 1), // SAKIT fleksibel tanpa batas 7 hari
     };
   }
 
