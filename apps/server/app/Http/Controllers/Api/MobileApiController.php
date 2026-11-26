@@ -677,11 +677,7 @@ class MobileApiController extends Controller
         ]);
 
         $user = $request->user();
-        $today = now()->toDateString();
-
-        $attendance = Attendance::where('user_id', $user->id)
-            ->whereDate('date', $today)
-            ->first();
+        $attendance = $this->findOpenAttendanceTodayOrYesterday($user);
 
         if (! $attendance || ! $attendance->time_in) {
             return response()->json([
@@ -690,8 +686,10 @@ class MobileApiController extends Controller
             ], 422);
         }
 
+        $attendanceDate = Carbon::parse($attendance->date)->toDateString();
+
         $existingReport = DailyReport::where('user_id', $user->id)
-            ->whereDate('date', $today)
+            ->whereDate('date', $attendanceDate)
             ->first();
 
         if ($existingReport && $existingReport->status === 'COMPLETED') {
@@ -708,7 +706,7 @@ class MobileApiController extends Controller
         $report = DailyReport::updateOrCreate(
             [
                 'user_id' => $user->id,
-                'date' => $today,
+                'date' => $attendanceDate,
             ],
             [
                 'morning_submitted_at' => now()->format('H:i:s'),
