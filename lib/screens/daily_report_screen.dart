@@ -56,9 +56,8 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
   void didUpdateWidget(covariant DailyReportScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.refreshTick != oldWidget.refreshTick) {
-      if (_segmentIndex == 0) {
-        _loadToday();
-      } else {
+      _loadToday();
+      if (_segmentIndex != 0) {
         _loadHistory();
       }
     }

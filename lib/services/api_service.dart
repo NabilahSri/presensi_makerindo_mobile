@@ -78,6 +78,8 @@ class ApiService {
   Map<String, String> _headers({bool jsonContent = true}) {
     final headers = <String, String>{
       'Accept': 'application/json',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
     };
     if (jsonContent) {
       headers['Content-Type'] = 'application/json';
@@ -87,6 +89,10 @@ class ApiService {
     }
     return headers;
   }
+
+  @visibleForTesting
+  Map<String, String> buildHeadersForTest({bool jsonContent = true}) =>
+      _headers(jsonContent: jsonContent);
 
   Uri _uri(String path, [Map<String, String>? query]) {
     final cleanPath = path.startsWith('/') ? path : '/$path';

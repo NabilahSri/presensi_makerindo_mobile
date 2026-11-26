@@ -15,7 +15,8 @@ class AttendanceHistoryScreen extends StatefulWidget {
   State<AttendanceHistoryScreen> createState() => _AttendanceHistoryScreenState();
 }
 
-class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
+class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen>
+    with WidgetsBindingObserver {
   int _month = DateTime.now().month;
   int _year = DateTime.now().year;
   bool _loading = true;
@@ -25,7 +26,21 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_loading) {
+      _load();
+    }
   }
 
   Future<void> _load() async {

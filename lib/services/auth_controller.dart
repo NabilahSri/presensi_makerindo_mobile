@@ -52,23 +52,23 @@ class AuthController extends ChangeNotifier {
         _user = null;
       }
     }
+    // Sinkronkan branding & profil terbaru dari backend sebelum masuk ke shell utama
+    // agar cold-start / setelah force-close langsung memakai data terbaru (dibatasi 3 detik jika offline).
+    await Future.wait([
+      refreshBranding().catchError((_) {}),
+      if (isAuthenticated)
+        refreshProfile().catchError((e) async {
+          if (e is ApiException && (e.statusCode == 401 || e.statusCode == 403)) {
+            await clearSession();
+          }
+        }),
+    ]).timeout(
+      const Duration(seconds: 3),
+      onTimeout: () => <void>[],
+    );
+
     _initialized = true;
     notifyListeners();
-
-    // Sync latest branding from web settings in background
-    refreshBranding().catchError((_) {});
-
-    if (isAuthenticated) {
-      try {
-        await refreshProfile();
-      } on ApiException catch (e) {
-        if (e.statusCode == 401 || e.statusCode == 403) {
-          await clearSession();
-        }
-      } catch (_) {
-        // Keep cached session when offline
-      }
-    }
   }
 
   Future<void> refreshBranding() async {

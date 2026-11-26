@@ -32,13 +32,28 @@ class ChronoMobileApp extends StatefulWidget {
   State<ChronoMobileApp> createState() => _ChronoMobileAppState();
 }
 
-class _ChronoMobileAppState extends State<ChronoMobileApp> {
+class _ChronoMobileAppState extends State<ChronoMobileApp>
+    with WidgetsBindingObserver {
   bool _splashCompleted = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initializeApp();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !widget.auth.isAuthenticated) {
+      widget.auth.refreshBranding().catchError((_) {});
+    }
   }
 
   Future<void> _initializeApp() async {

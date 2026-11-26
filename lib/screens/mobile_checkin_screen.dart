@@ -85,7 +85,7 @@ class _MobileCheckInScreenState extends State<MobileCheckInScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _position == null && !_loadingLocation) {
+    if (state == AppLifecycleState.resumed && !_loadingLocation && !_submitting) {
       _fetchLocation(showPopupOnError: false);
     }
   }

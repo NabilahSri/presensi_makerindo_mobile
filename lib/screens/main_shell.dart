@@ -31,6 +31,8 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   bool _initialChecking = true;
   bool _checkingLock = false;
+  bool _pendingSync = false;
+  bool _pendingTabRefresh = false;
   AttendanceTodayData? _todayStatus;
 
   @override
@@ -62,7 +64,13 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     bool isInitial = false,
     bool alsoRefreshActiveTab = false,
   }) async {
-    if (_checkingLock) return;
+    if (_checkingLock) {
+      _pendingSync = true;
+      if (alsoRefreshActiveTab) {
+        _pendingTabRefresh = true;
+      }
+      return;
+    }
     setState(() {
       _checkingLock = true;
       if (isInitial) _initialChecking = true;
@@ -86,6 +94,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       }
     } on ApiException catch (e) {
       if (e.statusCode == 401) {
+        _pendingSync = false;
+        _pendingTabRefresh = false;
+        _checkingLock = false;
         await widget.auth.clearSession();
         return;
       }
@@ -102,6 +113,13 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
           _checkingLock = false;
         });
       }
+    }
+
+    if (_pendingSync && mounted) {
+      final refreshTab = _pendingTabRefresh;
+      _pendingSync = false;
+      _pendingTabRefresh = false;
+      _syncShellStatus(alsoRefreshActiveTab: refreshTab);
     }
   }
 

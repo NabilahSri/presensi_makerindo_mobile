@@ -325,5 +325,148 @@ void main() {
       expect(find.byType(SplashScreen), findsNothing);
       expect(find.byType(LoginScreen), findsOneWidget);
     });
+
+    test('ApiService attaches Cache-Control and Pragma no-cache headers', () async {
+      final api = ApiService();
+      await api.init();
+
+      final headers = api.buildHeadersForTest();
+      expect(headers['Accept'], 'application/json');
+      expect(headers['Cache-Control'], contains('no-cache'));
+      expect(headers['Cache-Control'], contains('no-store'));
+      expect(headers['Pragma'], 'no-cache');
+    });
+
+    testWidgets('MainShell reloads latest backend data on AppLifecycleState.resumed',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(375, 812);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      final api = _FakeResumeApiService();
+      await api.init();
+      await api.setToken('test-token');
+      final auth = AuthController(api: api);
+      await auth.refreshProfile();
+      api.resetCounters();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ChronoTheme.build(),
+          home: MainShell(auth: auth),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final initialBranding = api.brandingCalls;
+      final initialProfile = api.profileCalls;
+      final initialToday = api.todayCalls;
+      expect(initialBranding, greaterThanOrEqualTo(1));
+      expect(initialProfile, greaterThanOrEqualTo(1));
+      expect(initialToday, greaterThanOrEqualTo(1));
+      expect(find.text('Karyawan Uji'), findsOneWidget);
+
+      // Simulasikan pembaruan data di backend lalu aplikasi kembali dari background (resumed)
+      api.dynamicName = 'Karyawan Terbaru';
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(api.brandingCalls, greaterThan(initialBranding));
+      expect(api.profileCalls, greaterThan(initialProfile));
+      expect(api.todayCalls, greaterThan(initialToday));
+      expect(find.text('Karyawan Terbaru'), findsOneWidget);
+    });
   });
+}
+
+class _FakeResumeApiService extends ApiService {
+  int brandingCalls = 0;
+  int profileCalls = 0;
+  int todayCalls = 0;
+  String dynamicName = 'Karyawan Uji';
+
+  void resetCounters() {
+    brandingCalls = 0;
+    profileCalls = 0;
+    todayCalls = 0;
+  }
+
+  @override
+  Future<BrandSettings> getBranding() async {
+    brandingCalls++;
+    return const BrandSettings(
+      appName: 'Presensi Makerindo',
+      appSlogan: 'Slogan Uji',
+      officeName: 'Kantor Uji',
+    );
+  }
+
+  @override
+  Future<UserProfile> getProfile() async {
+    profileCalls++;
+    return UserProfile.fromJson({
+      'id': 'u-test',
+      'name': dynamicName,
+      'email': 'uji@makerindo.test',
+      'employment_type': 'KARTAP',
+      'can_approve_leaves': false,
+      'is_attendance_required': true,
+      'roles': ['karyawan'],
+      'ui_flags': {
+        'primary_attendance_mode': 'GPS_PHOTO',
+        'show_leave_approval_menu': false,
+      },
+    });
+  }
+
+  @override
+  Future<AttendanceTodayData> getAttendanceToday() async {
+    todayCalls++;
+    return AttendanceTodayData.fromJson({
+      'date': '2026-11-27',
+      'has_checked_in': false,
+      'has_checked_out': false,
+      'can_checkout': false,
+      'has_approved_wfa_today': false,
+      'has_approved_tugas_luar_today': false,
+      'is_on_leave_today': false,
+      'can_mobile_checkin': false,
+      'can_onsite_checkin': false,
+      'daily_report': {},
+      'office': {'name': 'Kantor Uji'},
+    });
+  }
+
+  @override
+  Future<AttendanceHistoryData> getAttendanceHistory({required int month, required int year}) async {
+    return AttendanceHistoryData.fromJson({
+      'month': month,
+      'year': year,
+      'summary': {
+        'present_days': 0,
+        'late_days': 0,
+        'leave_days': 0,
+        'total_overtime_hours': 0,
+      },
+      'records': [],
+    });
+  }
+
+  @override
+  Future<DailyReportTodayData> getReportToday() async {
+    return DailyReportTodayData.fromJson({
+      'date': '2026-11-27',
+      'has_morning_report': false,
+      'has_evening_report': false,
+    });
+  }
+
+  @override
+  Future<List<LeaveRequestModel>> getMyLeaves() async => [];
+
+  @override
+  Future<({int activeCount, int lateCount, List<SanctionModel> items})> getSanctions() async {
+    return (activeCount: 0, lateCount: 0, items: <SanctionModel>[]);
+  }
 }
