@@ -536,17 +536,31 @@ class ApiService {
   }
 
   Future<File> downloadSanctionPdf(String sanctionId, String level) async {
-    final response = await http
-        .get(_uri('/sanctions/$sanctionId/download'), headers: _headers(jsonContent: false))
-        .timeout(const Duration(seconds: 30));
+    try {
+      final response = await http
+          .get(_uri('/sanctions/$sanctionId/download'), headers: _headers(jsonContent: false))
+          .timeout(const Duration(seconds: 30));
 
-    if (response.statusCode != 200) {
-      _decodeResponse(response);
+      if (response.statusCode != 200) {
+        _decodeResponse(response);
+      }
+
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/Surat_Sanksi_${level}_$sanctionId.pdf');
+      await file.writeAsBytes(response.bodyBytes, flush: true);
+      return file;
+    } on ApiException {
+      rethrow;
+    } on TimeoutException {
+      throw const ApiException(
+        'Waktu koneksi ke server habis saat mengunduh surat sanksi. Silakan coba lagi.',
+      );
+    } on SocketException {
+      throw const ApiException(
+        'Tidak dapat terhubung ke server saat mengunduh surat sanksi.',
+      );
+    } catch (e) {
+      throw ApiException('Gagal mengunduh surat sanksi: $e');
     }
-
-    final dir = await getApplicationDocumentsDirectory();
-    final file = File('${dir.path}/Surat_Sanksi_${level}_$sanctionId.pdf');
-    await file.writeAsBytes(response.bodyBytes, flush: true);
-    return file;
   }
 }
