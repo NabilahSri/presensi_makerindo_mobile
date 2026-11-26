@@ -1,58 +1,104 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Presensi Makerindo — Monorepo Workspace
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Repository terpadu (**Monorepo**) untuk sistem **Presensi Makerindo** yang menyatukan **Web Portal & Backend REST API (Laravel 13)** serta **Aplikasi Mobile (Flutter)** dalam satu repository GitHub (`NabilahSri/presensi_makerindo_mobile`).
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Struktur Repository & Branching
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+Repository ini menggunakan strategi **2-Branch Workspace** di lokal maupun GitHub:
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+| Folder Lokal | Branch GitHub | Isi & Stack | Keterangan |
+|---|---|---|---|
+| `D:\presensi_makerindo\main` | `main` | **Laravel 13** (`apps/server`) | Web Portal (Blade + Tailwind v4 + Vite) & Mobile REST API (`/api/...`) |
+| `D:\presensi_makerindo\mobile` | `mobile` | **Flutter** (Dart SDK `^3.12.0`) | Aplikasi Mobile Presensi GPS & Foto (`lib/`, `android/`, `ios/`) |
 
-## Learning Laravel
+### Struktur Folder Branch `main`
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
-
-```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+```text
+.
+├── .github/
+│   ├── workflows/
+│   │   └── ci.yml               # Validasi Composer, Laravel Pint, PHPUnit, & Vite build
+│   └── pull_request_template.md # Template standar Pull Request
+├── apps/
+│   └── server/                  # Aplikasi Laravel 13 (Web Portal + REST API)
+│       ├── app/                 # Controllers, Models, Services, Middleware
+│       ├── database/            # Migrations, Seeders, Factories
+│       ├── resources/           # Blade Views, CSS (Tailwind v4), JS (Vite)
+│       ├── routes/              # web.php (Web Portal) & api.php (Mobile REST API)
+│       └── tests/               # Unit & Feature Tests
+├── docs/
+│   ├── ARCHITECTURE.md          # Arsitektur monorepo & alur kerja Git
+│   └── API_CONTRACT.md          # Daftar endpoint Mobile REST API
+├── scripts/
+│   ├── setup.ps1                # Inisialisasi awal server lokal (Windows PowerShell)
+│   └── dev.ps1                  # Menjalankan server Laravel + Vite dev
+├── AGENTS.md                    # Pedoman kerja developer & AI agent
+├── package.json                 # NPM Workspace Root scripts
+└── README.md
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+---
 
-## Contributing
+## Prasyarat Lingkungan
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+- **PHP** `^8.5` (sesuai `apps/server/composer.json`) & **Composer**
+- **Node.js** `v20+` & **NPM** `v10+`
+- **Database**: SQLite (default `.env.example`) atau MySQL/MariaDB
 
-## Code of Conduct
+---
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## Panduan Setup & Menjalankan Lokal
 
-## Security Vulnerabilities
+### 1. Clone 2 Folder Kerja (Jika Setup di Mesin Baru)
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+mkdir presensi_makerindo && cd presensi_makerindo
+git clone -b main https://github.com/NabilahSri/presensi_makerindo_mobile.git main
+git clone -b mobile https://github.com/NabilahSri/presensi_makerindo_mobile.git mobile
+```
 
-## License
+### 2. Setup `apps/server` (Web + Backend API)
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Dari root folder `main`:
+
+```powershell
+# Otomatis via PowerShell helper:
+.\scripts\setup.ps1
+```
+
+Atau manual:
+
+```bash
+cd apps/server
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate
+npm install
+npm run build
+```
+
+### 3. Menjalankan Server Development
+
+Dari root folder `main`:
+
+```bash
+# Menjalankan Laravel server, queue, pail logs, dan Vite secara bersamaan
+npm run dev:server
+
+# Atau hanya Vite frontend dev server / PHP serve terpisah:
+npm run serve
+npm run dev
+```
+
+### 4. Testing & Code Style
+
+```bash
+# Jalankan test PHPUnit
+npm test
+
+# Cek formatting Laravel Pint
+npm run lint
+```

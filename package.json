@@ -1,16 +1,19 @@
 {
-    "$schema": "https://www.schemastore.org/package.json",
-    "private": true,
-    "type": "module",
-    "scripts": {
-        "build": "vite build",
-        "dev": "vite"
-    },
-    "devDependencies": {
-        "@tailwindcss/vite": "^4.3.3",
-        "concurrently": "^9.0.1",
-        "laravel-vite-plugin": "^3.1",
-        "tailwindcss": "^4.3.3",
-        "vite": "^8.0.0"
-    }
+  "name": "presensi-makerindo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Monorepo workspace for Presensi Makerindo — Laravel 13 Web Portal & REST API (main) and Flutter Mobile Client (branch mobile)",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "setup": "composer --working-dir=apps/server run setup",
+    "dev": "npm run dev --workspace=apps/server",
+    "dev:server": "composer --working-dir=apps/server run dev",
+    "serve": "php apps/server/artisan serve",
+    "build": "npm run build --workspace=apps/server",
+    "test": "composer --working-dir=apps/server run test",
+    "lint": "composer --working-dir=apps/server exec pint -- --test",
+    "lint:fix": "composer --working-dir=apps/server exec pint"
+  }
 }
