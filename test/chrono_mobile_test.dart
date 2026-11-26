@@ -368,8 +368,7 @@ void main() {
 
       // Simulasikan pembaruan data di backend lalu aplikasi kembali dari background (resumed)
       api.dynamicName = 'Karyawan Terbaru';
-      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
-      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      _simulateBackgroundResume(tester);
       await tester.pumpAndSettle();
 
       expect(api.brandingCalls, greaterThan(initialBranding));
@@ -377,7 +376,61 @@ void main() {
       expect(api.todayCalls, greaterThan(initialToday));
       expect(find.text('Karyawan Terbaru'), findsOneWidget);
     });
+
+    testWidgets('Logged-out ChronoMobileApp never fetches user account data on bootstrap or resume',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(375, 812);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      final api = _FakeResumeApiService();
+      await api.init();
+      await api.setToken('old-token');
+      final auth = AuthController(api: api);
+      await auth.refreshProfile();
+      await auth.logout();
+      api.resetCounters();
+
+      expect(auth.isAuthenticated, isFalse);
+      expect(auth.user, isNull);
+      expect(api.token, isNull);
+
+      await tester.pumpWidget(
+        ChronoMobileApp(
+          auth: auth,
+          splashDuration: const Duration(milliseconds: 50),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(LoginScreen), findsOneWidget);
+      expect(api.brandingCalls, 1);
+      expect(api.profileCalls, 0);
+      expect(api.todayCalls, 0);
+
+      // Saat keluar (paused) dan kembali (resumed) dalam kondisi logout, tidak boleh ambil data akun mana pun
+      _simulateBackgroundResume(tester);
+      await tester.pumpAndSettle();
+
+      expect(api.brandingCalls, 2);
+      expect(api.profileCalls, 0);
+      expect(api.todayCalls, 0);
+    });
   });
+}
+
+void _simulateBackgroundResume(WidgetTester tester) {
+  for (final state in const [
+    AppLifecycleState.inactive,
+    AppLifecycleState.hidden,
+    AppLifecycleState.paused,
+    AppLifecycleState.hidden,
+    AppLifecycleState.inactive,
+    AppLifecycleState.resumed,
+  ]) {
+    tester.binding.handleAppLifecycleStateChanged(state);
+  }
 }
 
 class _FakeResumeApiService extends ApiService {

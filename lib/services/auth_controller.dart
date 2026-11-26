@@ -130,6 +130,8 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
     try {
       await api.logout();
+    } catch (_) {
+      // Tetap bersihkan sesi lokal jika koneksi terputus atau token sudah kedaluwarsa
     } finally {
       await clearSession();
       _loading = false;
