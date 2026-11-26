@@ -47,10 +47,12 @@ jobs:
           cp .env.example .env
           php artisan key:generate
           touch database/database.sqlite
+          php artisan migrate --force
+          php artisan db:seed --force
 
       - name: Install NPM dependencies & build assets
         run: |
-          npm ci
+          npm ci --workspaces=false
           npm run build
 
       - name: Run Laravel Pint (style check)

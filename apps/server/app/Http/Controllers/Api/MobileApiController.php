@@ -21,9 +21,7 @@ use Illuminate\Support\Facades\Storage;
 
 class MobileApiController extends Controller
 {
-    public function __construct(protected AttendanceService $attendanceService)
-    {
-    }
+    public function __construct(protected AttendanceService $attendanceService) {}
 
     /**
      * Format data user standar untuk konsumsi aplikasi mobile Flutter
@@ -34,9 +32,9 @@ class MobileApiController extends Controller
 
         $photoPath = $user->profile_photo_path;
         $photoUrl = null;
-        if (!empty($photoPath)) {
+        if (! empty($photoPath)) {
             $photoUrl = $request
-                ? rtrim($request->getSchemeAndHttpHost(), '/') . '/storage/' . ltrim($photoPath, '/')
+                ? rtrim($request->getSchemeAndHttpHost(), '/').'/storage/'.ltrim($photoPath, '/')
                 : $user->profile_photo_url;
         }
 
@@ -80,7 +78,7 @@ class MobileApiController extends Controller
             'app_slogan' => $brand['slogan'],
             'app_logo_path' => $logoPath,
             'app_logo_url' => $logoPath
-                ? rtrim($request->getSchemeAndHttpHost(), '/') . '/' . ltrim($logoPath, '/')
+                ? rtrim($request->getSchemeAndHttpHost(), '/').'/'.ltrim($logoPath, '/')
                 : null,
             'office_name' => $brand['office_name'],
             'app_version' => $verNumber,
@@ -110,14 +108,14 @@ class MobileApiController extends Controller
 
         $user = User::with('roles')->where('email', $validated['email'])->first();
 
-        if (!$user || !Hash::check($validated['password'], $user->password)) {
+        if (! $user || ! Hash::check($validated['password'], $user->password)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Email atau kata sandi yang Anda masukkan tidak sesuai.',
             ], 401);
         }
 
-        if (!$user->canAccessMobileApp()) {
+        if (! $user->canAccessMobileApp()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Akses ditolak. Aplikasi Presensi Makerindo Mobile hanya untuk Karyawan Regular dan Magang. Silakan masuk melalui Portal Web Presensi Makerindo.',
@@ -129,7 +127,7 @@ class MobileApiController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Berhasil masuk ke aplikasi ' . ($brandPayload['app_name'] ?? 'Presensi Makerindo') . ' Mobile.',
+            'message' => 'Berhasil masuk ke aplikasi '.($brandPayload['app_name'] ?? 'Presensi Makerindo').' Mobile.',
             'access_token' => $tokenResult->plainTextToken,
             'token_type' => 'Bearer',
             'user' => $this->formatUserPayload($user, $request),
@@ -174,7 +172,7 @@ class MobileApiController extends Controller
 
         $user = $request->user();
 
-        if (!empty($user->profile_photo_path) && Storage::disk('public')->exists($user->profile_photo_path)) {
+        if (! empty($user->profile_photo_path) && Storage::disk('public')->exists($user->profile_photo_path)) {
             Storage::disk('public')->delete($user->profile_photo_path);
         }
 
@@ -193,7 +191,7 @@ class MobileApiController extends Controller
     {
         $user = $request->user();
 
-        if (!empty($user->profile_photo_path) && Storage::disk('public')->exists($user->profile_photo_path)) {
+        if (! empty($user->profile_photo_path) && Storage::disk('public')->exists($user->profile_photo_path)) {
             Storage::disk('public')->delete($user->profile_photo_path);
         }
 
@@ -216,7 +214,7 @@ class MobileApiController extends Controller
 
         $user = $request->user();
 
-        if (!Hash::check($validated['current_password'], $user->password)) {
+        if (! Hash::check($validated['current_password'], $user->password)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Kata sandi saat ini tidak sesuai.',
@@ -237,25 +235,44 @@ class MobileApiController extends Controller
     // 2. PRESENSI & RIWAYAT KEHADIRAN (ATTENDANCES)
     // =========================================================================
 
+    private function findOpenAttendanceTodayOrYesterday(User $user): ?Attendance
+    {
+        $today = now()->toDateString();
+        $attendance = Attendance::where('user_id', $user->id)
+            ->whereDate('date', $today)
+            ->first();
+
+        if ($attendance) {
+            return $attendance;
+        }
+
+        $yesterday = now()->subDay()->toDateString();
+
+        return Attendance::where('user_id', $user->id)
+            ->whereDate('date', $yesterday)
+            ->whereNotNull('time_in')
+            ->whereNull('time_out')
+            ->first();
+    }
+
     public function attendanceToday(Request $request): JsonResponse
     {
         $user = $request->user();
         $today = now()->toDateString();
 
-        $attendance = Attendance::where('user_id', $user->id)
-            ->whereDate('date', $today)
-            ->first();
+        $attendance = $this->findOpenAttendanceTodayOrYesterday($user);
+        $attendanceDate = $attendance ? Carbon::parse($attendance->date)->toDateString() : $today;
 
         $dailyReport = DailyReport::where('user_id', $user->id)
-            ->whereDate('date', $today)
+            ->whereDate('date', $attendanceDate)
             ->first();
 
         $officeSettings = $this->attendanceService->getOfficeSettings();
 
-        $hasCheckedIn = $attendance !== null && !empty($attendance->time_in);
-        $hasCheckedOut = $attendance !== null && !empty($attendance->time_out);
+        $hasCheckedIn = $attendance !== null && ! empty($attendance->time_in);
+        $hasCheckedOut = $attendance !== null && ! empty($attendance->time_out);
         $activeDailyReport = $hasCheckedIn ? $dailyReport : null;
-        $hasMorningReport = $activeDailyReport !== null && !empty($activeDailyReport->morning_planned_tasks);
+        $hasMorningReport = $activeDailyReport !== null && ! empty($activeDailyReport->morning_planned_tasks);
         $hasEveningReport = $activeDailyReport !== null && $activeDailyReport->status === 'COMPLETED';
 
         $todayWfaLeaves = LeaveRequest::where('user_id', $user->id)
@@ -297,11 +314,11 @@ class MobileApiController extends Controller
             ?? ($isOnLeaveToday ? $attendance?->status : null);
 
         $isIntern = $user->employment_type === 'INTERN';
-        $canMobileCheckIn = !$hasCheckedIn && !$isOnLeaveToday && ($isIntern || $hasApprovedWfaToday || $hasApprovedTugasLuarToday);
-        $canOnsiteCheckIn = !$hasCheckedIn && !$isOnLeaveToday && !$isIntern && !$hasApprovedWfaToday && !$hasApprovedTugasLuarToday;
+        $canMobileCheckIn = ! $hasCheckedIn && ! $isOnLeaveToday && ($isIntern || $hasApprovedWfaToday || $hasApprovedTugasLuarToday);
+        $canOnsiteCheckIn = ! $hasCheckedIn && ! $isOnLeaveToday && ! $isIntern && ! $hasApprovedWfaToday && ! $hasApprovedTugasLuarToday;
 
         $checkoutMode = null;
-        if ($hasCheckedIn && !$hasCheckedOut) {
+        if ($hasCheckedIn && ! $hasCheckedOut) {
             $checkoutMode = ($isIntern || in_array($attendance?->status, ['WFA', 'TUGAS_LUAR'], true))
                 ? 'MOBILE_FREE'
                 : 'ONSITE_GEOFENCE';
@@ -309,10 +326,10 @@ class MobileApiController extends Controller
 
         return response()->json([
             'success' => true,
-            'date' => $today,
+            'date' => $attendanceDate,
             'has_checked_in' => $hasCheckedIn,
             'has_checked_out' => $hasCheckedOut,
-            'can_checkout' => $hasCheckedIn && !$hasCheckedOut && $hasEveningReport,
+            'can_checkout' => $hasCheckedIn && ! $hasCheckedOut && $hasEveningReport,
             'checkout_mode' => $checkoutMode,
             'has_approved_wfa_today' => $hasApprovedWfaToday,
             'wfa_request_today_status' => $wfaRequestStatus,
@@ -331,7 +348,7 @@ class MobileApiController extends Controller
             'can_onsite_checkin' => $canOnsiteCheckIn,
             'attendance' => $attendance ? [
                 'id' => $attendance->id,
-                'date' => $today,
+                'date' => $attendanceDate,
                 'time_in' => $attendance->time_in,
                 'time_out' => $attendance->time_out,
                 'status' => $attendance->status,
@@ -379,7 +396,7 @@ class MobileApiController extends Controller
         if ($existing && $existing->time_in) {
             return response()->json([
                 'success' => false,
-                'message' => 'Anda sudah melakukan presensi masuk hari ini pada pukul ' . substr($existing->time_in, 0, 5) . ' WIB.',
+                'message' => 'Anda sudah melakukan presensi masuk hari ini pada pukul '.substr($existing->time_in, 0, 5).' WIB.',
                 'attendance' => $existing,
             ], 422);
         }
@@ -423,10 +440,10 @@ class MobileApiController extends Controller
 
         // Karyawan (KARTAP/PKWT) tanpa izin WFA/TUGAS_LUAR APPROVED melakukan presensi kantor (ON_SITE)
         // menggunakan GPS & Foto dengan validasi radius kantor ketat di AttendanceService.
-        $isOnsiteOfficeCheckIn = !$isIntern && $requestedType === 'ON_SITE';
+        $isOnsiteOfficeCheckIn = ! $isIntern && $requestedType === 'ON_SITE';
         $isTugasLuarRequested = $requestedType === 'TUGAS_LUAR';
 
-        if ($isTugasLuarRequested && !$hasApprovedTugasLuarToday) {
+        if ($isTugasLuarRequested && ! $hasApprovedTugasLuarToday) {
             $reasonMsg = match ($latestTugasLuarStatus) {
                 'PENDING' => 'Presensi Tugas Luar belum dapat dilakukan karena pengajuan Tugas Luar Anda hari ini masih menunggu persetujuan (PENDING).',
                 'REJECTED' => 'Presensi Tugas Luar ditolak karena pengajuan Tugas Luar Anda hari ini berstatus REJECTED.',
@@ -440,7 +457,7 @@ class MobileApiController extends Controller
             ], 422);
         }
 
-        if (!$isIntern && !$hasApprovedWfaToday && !$hasApprovedTugasLuarToday && !$isOnsiteOfficeCheckIn) {
+        if (! $isIntern && ! $hasApprovedWfaToday && ! $hasApprovedTugasLuarToday && ! $isOnsiteOfficeCheckIn) {
             $reasonMsg = match ($latestWfaStatus) {
                 'PENDING' => 'Presensi WFA/WFH belum dapat dilakukan karena pengajuan WFH Anda hari ini masih menunggu persetujuan (PENDING).',
                 'REJECTED' => 'Presensi WFA/WFH ditolak karena pengajuan WFH Anda hari ini berstatus REJECTED. Silakan lakukan presensi Kantor (ON_SITE) dengan GPS & Foto di dalam radius kantor.',
@@ -457,7 +474,7 @@ class MobileApiController extends Controller
         // Tentukan mode presensi akhir sebelum menyimpan file agar jika radius ditolak (422) tidak menyimpan file yatim.
         if ($isOnsiteOfficeCheckIn) {
             $effectivePresenceType = 'ON_SITE';
-        } elseif ($hasApprovedTugasLuarToday && ($isTugasLuarRequested || !$hasApprovedWfaToday)) {
+        } elseif ($hasApprovedTugasLuarToday && ($isTugasLuarRequested || ! $hasApprovedWfaToday)) {
             $effectivePresenceType = 'TUGAS_LUAR';
         } elseif ($hasApprovedWfaToday) {
             $effectivePresenceType = 'WFA';
@@ -476,7 +493,7 @@ class MobileApiController extends Controller
 
         $faceImagePath = null;
         if ($request->hasFile('face_image')) {
-            $faceImagePath = $request->file('face_image')->store('faces/' . now()->format('Y-m'), 'public');
+            $faceImagePath = $request->file('face_image')->store('faces/'.now()->format('Y-m'), 'public');
         }
 
         /** @var Attendance $attendance */
@@ -498,13 +515,9 @@ class MobileApiController extends Controller
     public function attendanceCheckout(Request $request): JsonResponse
     {
         $user = $request->user();
-        $today = now()->toDateString();
+        $attendance = $this->findOpenAttendanceTodayOrYesterday($user);
 
-        $attendance = Attendance::where('user_id', $user->id)
-            ->whereDate('date', $today)
-            ->first();
-
-        if (!$attendance || !$attendance->time_in) {
+        if (! $attendance || ! $attendance->time_in) {
             return response()->json([
                 'success' => false,
                 'message' => 'Anda belum melakukan presensi masuk hari ini.',
@@ -514,16 +527,18 @@ class MobileApiController extends Controller
         if ($attendance->time_out) {
             return response()->json([
                 'success' => false,
-                'message' => 'Anda sudah melakukan presensi pulang hari ini pada pukul ' . substr($attendance->time_out, 0, 5) . ' WIB.',
+                'message' => 'Anda sudah melakukan presensi pulang hari ini pada pukul '.substr($attendance->time_out, 0, 5).' WIB.',
             ], 422);
         }
 
+        $attendanceDate = Carbon::parse($attendance->date)->toDateString();
+
         // Validasi kunci: DailyReport sore WAJIB sudah berstatus COMPLETED
         $dailyReport = DailyReport::where('user_id', $user->id)
-            ->whereDate('date', $today)
+            ->whereDate('date', $attendanceDate)
             ->first();
 
-        if (!$dailyReport || $dailyReport->status !== 'COMPLETED') {
+        if (! $dailyReport || $dailyReport->status !== 'COMPLETED') {
             return response()->json([
                 'success' => false,
                 'message' => 'Anda wajib menyelesaikan evaluasi laporan tugas sore hingga selesai sebelum melakukan presensi pulang.',
@@ -549,9 +564,9 @@ class MobileApiController extends Controller
         $isWithinRadius = $distance <= $office['radius'];
 
         $isIntern = $user->employment_type === 'INTERN';
-        $requiresOfficeGeofence = !$isIntern && $attendance->status === 'HADIR_ON_SITE';
+        $requiresOfficeGeofence = ! $isIntern && $attendance->status === 'HADIR_ON_SITE';
 
-        if ($requiresOfficeGeofence && !$isWithinRadius) {
+        if ($requiresOfficeGeofence && ! $isWithinRadius) {
             return response()->json([
                 'success' => false,
                 'message' => "Presensi pulang ditolak: Anda tercatat hadir di kantor, namun posisi Anda berada di luar radius kantor ({$distance} meter dari kantor, batas {$office['radius']} meter). Silakan lakukan presensi pulang dari dalam area kantor dengan GPS dan foto selfie.",
@@ -565,10 +580,10 @@ class MobileApiController extends Controller
             ], 422);
         }
 
-        $checkoutFacePath = $request->file('face_image')->store('faces-checkout/' . now()->format('Y-m'), 'public');
+        $checkoutFacePath = $request->file('face_image')->store('faces-checkout/'.now()->format('Y-m'), 'public');
 
         $now = now();
-        $overtimeHours = $this->attendanceService->calculateOvertimeHours($now);
+        $overtimeHours = $this->attendanceService->calculateOvertimeHours($now, $attendanceDate);
 
         $attendance->update([
             'time_out' => $now->format('H:i:s'),
@@ -580,7 +595,7 @@ class MobileApiController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => "Presensi pulang berhasil dicatat pada pukul {$now->format('H:i')} WIB." . ($overtimeHours > 0 ? " Lembur tercatat: {$overtimeHours} jam." : ''),
+            'message' => "Presensi pulang berhasil dicatat pada pukul {$now->format('H:i')} WIB.".($overtimeHours > 0 ? " Lembur tercatat: {$overtimeHours} jam." : ''),
             'overtime_hours' => $overtimeHours,
             'distance_meters' => $distance,
             'is_within_radius' => $isWithinRadius,
@@ -629,19 +644,16 @@ class MobileApiController extends Controller
     public function reportToday(Request $request): JsonResponse
     {
         $user = $request->user();
-        $today = now()->toDateString();
-
-        $attendance = Attendance::where('user_id', $user->id)
-            ->whereDate('date', $today)
-            ->first();
-        $hasCheckedIn = $attendance !== null && !empty($attendance->time_in);
+        $attendance = $this->findOpenAttendanceTodayOrYesterday($user);
+        $hasCheckedIn = $attendance !== null && ! empty($attendance->time_in);
+        $attendanceDate = $attendance ? Carbon::parse($attendance->date)->toDateString() : now()->toDateString();
 
         $report = $hasCheckedIn
-            ? DailyReport::where('user_id', $user->id)->whereDate('date', $today)->first()
+            ? DailyReport::where('user_id', $user->id)->whereDate('date', $attendanceDate)->first()
             : null;
 
         $plannedTasksArray = [];
-        if ($report && !empty($report->morning_planned_tasks)) {
+        if ($report && ! empty($report->morning_planned_tasks)) {
             $plannedTasksArray = array_values(array_filter(array_map(function ($line) {
                 return trim(preg_replace('/^(\d+[\.\)]\s*|[-*•]\s*)/', '', trim($line)));
             }, preg_split('/\r?\n/', $report->morning_planned_tasks))));
@@ -649,7 +661,7 @@ class MobileApiController extends Controller
 
         return response()->json([
             'success' => true,
-            'date' => $today,
+            'date' => $attendanceDate,
             'has_checked_in' => $hasCheckedIn,
             'has_submitted_morning' => $report !== null,
             'is_completed' => $report?->status === 'COMPLETED',
@@ -671,7 +683,7 @@ class MobileApiController extends Controller
             ->whereDate('date', $today)
             ->first();
 
-        if (!$attendance || !$attendance->time_in) {
+        if (! $attendance || ! $attendance->time_in) {
             return response()->json([
                 'success' => false,
                 'message' => 'Anda harus melakukan presensi masuk terlebih dahulu sebelum mengirim rencana tugas pagi.',
@@ -721,24 +733,22 @@ class MobileApiController extends Controller
         ]);
 
         $user = $request->user();
-        $today = now()->toDateString();
+        $attendance = $this->findOpenAttendanceTodayOrYesterday($user);
 
-        $attendance = Attendance::where('user_id', $user->id)
-            ->whereDate('date', $today)
-            ->first();
-
-        if (!$attendance || !$attendance->time_in) {
+        if (! $attendance || ! $attendance->time_in) {
             return response()->json([
                 'success' => false,
                 'message' => 'Anda harus melakukan presensi masuk terlebih dahulu sebelum mengisi evaluasi tugas sore.',
             ], 422);
         }
 
+        $attendanceDate = Carbon::parse($attendance->date)->toDateString();
+
         $report = DailyReport::where('user_id', $user->id)
-            ->whereDate('date', $today)
+            ->whereDate('date', $attendanceDate)
             ->first();
 
-        if (!$report) {
+        if (! $report) {
             return response()->json([
                 'success' => false,
                 'message' => 'Anda belum mengisi rencana tugas pagi hari ini. Silakan kirim laporan pagi terlebih dahulu.',
@@ -824,14 +834,37 @@ class MobileApiController extends Controller
         ]);
     }
 
-    private function validateLeavePolicy(User $user, string $type, Carbon $startDate, Carbon $endDate): ?JsonResponse
+    private function validateLeavePolicy(User $user, string $type, Carbon $startDate, Carbon $endDate, ?string $ignoreLeaveId = null): ?JsonResponse
     {
         $today = now()->startOfDay();
+
+        $overlappingLeave = LeaveRequest::where('user_id', $user->id)
+            ->when($ignoreLeaveId, fn ($q) => $q->where('id', '!=', $ignoreLeaveId))
+            ->where(function ($q) use ($type) {
+                $q->where('status', 'APPROVED')
+                    ->orWhere(function ($sub) use ($type) {
+                        $sub->where('status', 'PENDING')->where('type', $type);
+                    });
+            })
+            ->whereDate('start_date', '<=', $endDate->toDateString())
+            ->whereDate('end_date', '>=', $startDate->toDateString())
+            ->first();
+
+        if ($overlappingLeave) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Rentang tanggal pengajuan bertabrakan dengan pengajuan perizinan lain yang masih aktif atau menunggu persetujuan.',
+                'errors' => [
+                    'start_date' => ['Rentang tanggal bertabrakan dengan pengajuan perizinan sebelumnya.'],
+                ],
+            ], 422);
+        }
 
         if ($type === 'CUTI') {
             $minStart = $today->copy()->addDays(7);
             if ($startDate->lt($minStart)) {
                 $minFormatted = $minStart->translatedFormat('d M Y');
+
                 return response()->json([
                     'success' => false,
                     'message' => "Pengajuan Cuti harus dilakukan minimal 7 hari (1 minggu) sebelumnya. Tanggal mulai paling cepat adalah {$minFormatted}.",
@@ -844,6 +877,7 @@ class MobileApiController extends Controller
             $minStart = $today->copy()->addDay();
             if ($startDate->lt($minStart)) {
                 $minFormatted = $minStart->translatedFormat('d M Y');
+
                 return response()->json([
                     'success' => false,
                     'message' => "Pengajuan Izin harus dilakukan minimal 1 hari sebelumnya. Tanggal mulai paling cepat adalah {$minFormatted}.",
@@ -856,6 +890,7 @@ class MobileApiController extends Controller
             $minStart = $today->copy()->addDay();
             if ($startDate->lt($minStart)) {
                 $minFormatted = $minStart->translatedFormat('d M Y');
+
                 return response()->json([
                     'success' => false,
                     'message' => "Pengajuan WFA harus dilakukan minimal 1 hari sebelumnya. Tanggal mulai paling cepat adalah {$minFormatted}.",
@@ -875,19 +910,36 @@ class MobileApiController extends Controller
                 ], 422);
             }
         } elseif ($type === 'SAKIT') {
+            $minSakitDate = $today->copy()->subDays(7);
+            if ($startDate->lt($minSakitDate)) {
+                $minFormatted = $minSakitDate->translatedFormat('d M Y');
+
+                return response()->json([
+                    'success' => false,
+                    'message' => "Pengajuan Sakit maksimal dapat diajukan mundur 7 hari ke belakang (paling lama {$minFormatted}).",
+                    'errors' => [
+                        'start_date' => ["Tanggal mulai Sakit paling lama 7 hari ke belakang ({$minSakitDate->toDateString()})."],
+                    ],
+                ], 422);
+            }
+
             $alreadyPresent = Attendance::where('user_id', $user->id)
                 ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
-                ->whereNotNull('time_in')
+                ->where(function ($q) {
+                    $q->whereNotNull('time_in')
+                        ->orWhereIn('status', ['CUTI', 'SAKIT', 'IZIN']);
+                })
                 ->orderBy('date', 'asc')
                 ->first();
 
             if ($alreadyPresent) {
                 $conflictDate = Carbon::parse($alreadyPresent->date)->translatedFormat('d M Y');
+
                 return response()->json([
                     'success' => false,
-                    'message' => "Pengajuan Sakit tidak dapat dilakukan karena Anda sudah melakukan presensi masuk pada tanggal {$conflictDate}.",
+                    'message' => "Pengajuan Sakit tidak dapat dilakukan karena Anda sudah tercatat hadir atau berizin pada tanggal {$conflictDate}.",
                     'errors' => [
-                        'start_date' => ["Anda sudah melakukan presensi masuk pada tanggal {$conflictDate} sehingga tidak dapat mengajukan Sakit pada tanggal tersebut."],
+                        'start_date' => ["Anda sudah melakukan presensi masuk atau berizin pada tanggal {$conflictDate} sehingga tidak dapat mengajukan Sakit pada tanggal tersebut."],
                     ],
                 ], 422);
             }
@@ -917,7 +969,7 @@ class MobileApiController extends Controller
 
         $attachmentPath = null;
         if ($request->hasFile('attachment')) {
-            $attachmentPath = $request->file('attachment')->store('leave-attachments/' . now()->format('Y-m'), 'public');
+            $attachmentPath = $request->file('attachment')->store('leave-attachments/'.now()->format('Y-m'), 'public');
         }
 
         $isAutoApproved = $type === 'SAKIT';
@@ -986,7 +1038,7 @@ class MobileApiController extends Controller
         $startDate = Carbon::parse($validated['start_date'])->startOfDay();
         $endDate = Carbon::parse($validated['end_date'])->startOfDay();
 
-        if ($policyError = $this->validateLeavePolicy($user, $type, $startDate, $endDate)) {
+        if ($policyError = $this->validateLeavePolicy($user, $type, $startDate, $endDate, $leaveRequest->id)) {
             return $policyError;
         }
 
@@ -995,7 +1047,7 @@ class MobileApiController extends Controller
             if ($attachmentPath && Storage::disk('public')->exists($attachmentPath)) {
                 Storage::disk('public')->delete($attachmentPath);
             }
-            $attachmentPath = $request->file('attachment')->store('leave-attachments/' . now()->format('Y-m'), 'public');
+            $attachmentPath = $request->file('attachment')->store('leave-attachments/'.now()->format('Y-m'), 'public');
         }
 
         $isAutoApproved = $type === 'SAKIT';
@@ -1057,7 +1109,7 @@ class MobileApiController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->can_approve_leaves && !$user->hasRole('super_admin')) {
+        if (! $user->can_approve_leaves && ! $user->hasRole('super_admin')) {
             return response()->json([
                 'success' => false,
                 'message' => 'Anda tidak memiliki wewenang untuk menyetujui permohonan izin/WFA.',
@@ -1066,9 +1118,9 @@ class MobileApiController extends Controller
 
         $statusFilter = strtoupper((string) $request->input('status', 'PENDING'));
         $query = LeaveRequest::with([
-                'user:id,name,email,employment_type',
-                'approver:id,name,email',
-            ])
+            'user:id,name,email,employment_type',
+            'approver:id,name,email',
+        ])
             ->where('user_id', '!=', $user->id)
             ->orderBy('created_at', 'desc');
 
@@ -1091,7 +1143,7 @@ class MobileApiController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->can_approve_leaves && !$user->hasRole('super_admin')) {
+        if (! $user->can_approve_leaves && ! $user->hasRole('super_admin')) {
             return response()->json([
                 'success' => false,
                 'message' => 'Anda tidak memiliki wewenang untuk memproses persetujuan pengajuan ini.',
@@ -1111,6 +1163,7 @@ class MobileApiController extends Controller
                 'REJECTED' => 'Ditolak',
                 default => $leaveRequest->status,
             };
+
             return response()->json([
                 'success' => false,
                 'message' => "Pengajuan ini sudah diproses sebelumnya dengan status {$statusLabel}.",
@@ -1184,7 +1237,7 @@ class MobileApiController extends Controller
     {
         $user = $request->user();
 
-        if ($employeeSanction->user_id !== $user->id && !$user->hasRole('super_admin')) {
+        if ($employeeSanction->user_id !== $user->id && ! $user->hasRole('super_admin')) {
             return response()->json([
                 'success' => false,
                 'message' => 'Anda tidak memiliki akses untuk melihat rincian sanksi ini.',
@@ -1218,7 +1271,7 @@ class MobileApiController extends Controller
     {
         $user = $request->user();
 
-        if ($employeeSanction->user_id !== $user->id && !$user->hasRole('super_admin')) {
+        if ($employeeSanction->user_id !== $user->id && ! $user->hasRole('super_admin')) {
             return response()->json([
                 'success' => false,
                 'message' => 'Anda tidak memiliki akses untuk mengunduh surat sanksi ini.',

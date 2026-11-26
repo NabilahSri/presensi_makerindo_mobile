@@ -63,7 +63,6 @@ class AttendanceController extends Controller
             'leaves' => (clone $statsToday)->whereIn('status', ['CUTI', 'SAKIT', 'IZIN'])->count(),
         ];
 
-        $attendances = $query->orderBy('time_in', 'desc')->paginate(15)->withQueryString();
         $perPage = in_array((int) $request->input('per_page'), [5, 10, 15, 25, 50])
             ? (int) $request->input('per_page')
             : 10;
@@ -106,14 +105,14 @@ class AttendanceController extends Controller
 
         // Tentukan personil yang presensi
         $user = Auth::user();
-        if (!empty($validated['user_id'])) {
+        if (! empty($validated['user_id'])) {
             // Super Admin dapat mencatatkan presensi personil via GPS
             if ($user && $user->hasRole('super_admin')) {
                 $user = User::findOrFail($validated['user_id']);
             }
         }
 
-        if (!$user) {
+        if (! $user) {
             throw ValidationException::withMessages([
                 'user' => 'Pengguna tidak terotentikasi.',
             ]);
@@ -168,8 +167,8 @@ class AttendanceController extends Controller
         ]);
 
         $user = User::findOrFail($validated['user_id']);
-        $timeIn = !empty($validated['time_in']) ? (strlen($validated['time_in']) === 5 ? $validated['time_in'] . ':00' : $validated['time_in']) : null;
-        $timeOut = !empty($validated['time_out']) ? (strlen($validated['time_out']) === 5 ? $validated['time_out'] . ':00' : $validated['time_out']) : null;
+        $timeIn = ! empty($validated['time_in']) ? (strlen($validated['time_in']) === 5 ? $validated['time_in'].':00' : $validated['time_in']) : null;
+        $timeOut = ! empty($validated['time_out']) ? (strlen($validated['time_out']) === 5 ? $validated['time_out'].':00' : $validated['time_out']) : null;
 
         $defaultMethod = match ($validated['status']) {
             'HADIR_ON_SITE', 'WFA', 'TUGAS_LUAR' => 'FACIAL_LOCATION',

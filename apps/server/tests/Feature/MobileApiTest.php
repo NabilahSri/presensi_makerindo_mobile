@@ -4,7 +4,13 @@ namespace Tests\Feature;
 
 use App\Models\Attendance;
 use App\Models\DailyReport;
+use App\Models\EmployeeSanction;
+use App\Models\Holiday;
+use App\Models\LeaveRequest;
+use App\Models\Setting;
 use App\Models\User;
+use App\Services\AttendanceService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -53,14 +59,14 @@ class MobileApiTest extends TestCase
         $this->assertEquals('GPS_PHOTO', $loginResponse->json('user.ui_flags.primary_attendance_mode'));
 
         // 2. Get Profile dengan Bearer Token
-        $profileResponse = $this->withHeader('Authorization', 'Bearer ' . $token)
+        $profileResponse = $this->withHeader('Authorization', 'Bearer '.$token)
             ->getJson('/api/profile');
 
         $profileResponse->assertOk()
             ->assertJsonPath('data.email', 'karyawan@test.com');
 
         // 3. Update Password
-        $pwdResponse = $this->withHeader('Authorization', 'Bearer ' . $token)
+        $pwdResponse = $this->withHeader('Authorization', 'Bearer '.$token)
             ->putJson('/api/profile/password', [
                 'current_password' => 'password',
                 'password' => 'newsecret123',
@@ -71,7 +77,7 @@ class MobileApiTest extends TestCase
             ->assertJsonPath('success', true);
 
         // 4. Logout menghapus token
-        $logoutResponse = $this->withHeader('Authorization', 'Bearer ' . $token)
+        $logoutResponse = $this->withHeader('Authorization', 'Bearer '.$token)
             ->postJson('/api/logout');
 
         $logoutResponse->assertOk()
@@ -91,7 +97,7 @@ class MobileApiTest extends TestCase
         $token = $intern->createToken('flutter-test')->plainTextToken;
 
         // 1. Cek status absensi hari ini sebelum check-in
-        $todayRes = $this->withHeader('Authorization', 'Bearer ' . $token)
+        $todayRes = $this->withHeader('Authorization', 'Bearer '.$token)
             ->getJson('/api/attendance/today');
 
         $todayRes->assertOk()
@@ -99,7 +105,7 @@ class MobileApiTest extends TestCase
             ->assertJsonPath('can_checkout', false);
 
         // 2. Check-in WFH/WFA dengan unggah foto wajah + GPS
-        $checkInRes = $this->withHeader('Authorization', 'Bearer ' . $token)
+        $checkInRes = $this->withHeader('Authorization', 'Bearer '.$token)
             ->postJson('/api/attendance/wfh', [
                 'latitude' => -6.91750000,
                 'longitude' => 107.61910000,
@@ -110,7 +116,7 @@ class MobileApiTest extends TestCase
             ->assertJsonPath('success', true);
 
         // 3. Kirim rencana tugas pagi (Daily Report Morning)
-        $morningRes = $this->withHeader('Authorization', 'Bearer ' . $token)
+        $morningRes = $this->withHeader('Authorization', 'Bearer '.$token)
             ->postJson('/api/reports/morning', [
                 'morning_planned_tasks' => "1. Integrasi halaman Home Flutter\n2. Uji endpoint presensi WFA",
             ]);
@@ -119,14 +125,14 @@ class MobileApiTest extends TestCase
             ->assertJsonPath('data.status', 'MORNING_ONLY');
 
         // 4. Coba Checkout SEBELUM evaluasi sore selesai -> Harus ditolak (422)
-        $earlyCheckoutRes = $this->withHeader('Authorization', 'Bearer ' . $token)
+        $earlyCheckoutRes = $this->withHeader('Authorization', 'Bearer '.$token)
             ->postJson('/api/attendance/checkout');
 
         $earlyCheckoutRes->assertStatus(422)
             ->assertJsonPath('daily_report_status', 'MORNING_ONLY');
 
         // 5. Ambil rencana tugas pagi dari /api/reports/today
-        $reportTodayRes = $this->withHeader('Authorization', 'Bearer ' . $token)
+        $reportTodayRes = $this->withHeader('Authorization', 'Bearer '.$token)
             ->getJson('/api/reports/today');
 
         $reportTodayRes->assertOk()
@@ -134,7 +140,7 @@ class MobileApiTest extends TestCase
             ->assertJsonPath('is_completed', false);
 
         // 6. Kirim evaluasi tugas sore (Daily Report Evening -> COMPLETED)
-        $eveningRes = $this->withHeader('Authorization', 'Bearer ' . $token)
+        $eveningRes = $this->withHeader('Authorization', 'Bearer '.$token)
             ->postJson('/api/reports/evening', [
                 'evening_completed_tasks' => '1. Integrasi halaman Home Flutter (Selesai)',
                 'evening_pending_tasks' => '2. Uji endpoint presensi WFA (Dilanjutkan besok)',
@@ -146,7 +152,7 @@ class MobileApiTest extends TestCase
             ->assertJsonPath('can_checkout', true);
 
         // 7. Checkout setelah DailyReport COMPLETED -> Berhasil (200 OK) dengan lokasi & foto selfie
-        $checkoutRes = $this->withHeader('Authorization', 'Bearer ' . $token)
+        $checkoutRes = $this->withHeader('Authorization', 'Bearer '.$token)
             ->postJson('/api/attendance/checkout', [
                 'latitude' => -6.91750000,
                 'longitude' => 107.61910000,
@@ -160,13 +166,13 @@ class MobileApiTest extends TestCase
         $this->assertNotEmpty($checkoutRes->json('attendance.checkout_face_image_url'));
 
         // 8. Cek riwayat presensi & laporan tugas (pastikan format tanggal Y-m-d tanpa pergeseran UTC)
-        $this->withHeader('Authorization', 'Bearer ' . $token)
+        $this->withHeader('Authorization', 'Bearer '.$token)
             ->getJson('/api/attendance/history')
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.0.date', $today);
 
-        $this->withHeader('Authorization', 'Bearer ' . $token)
+        $this->withHeader('Authorization', 'Bearer '.$token)
             ->getJson('/api/reports/history')
             ->assertOk()
             ->assertJsonPath('success', true)
@@ -182,14 +188,14 @@ class MobileApiTest extends TestCase
         $mgrToken = $approver->createToken('mgr-mobile')->plainTextToken;
 
         // 1. Karyawan biasa tidak berhak mengakses /api/leaves/approvals (403)
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->getJson('/api/leaves/approvals')
             ->assertStatus(403);
 
         // 2. Karyawan mengajukan WFH/WFA minimal H-1 lewat aplikasi mobile
         $tomorrow = now()->addDay()->toDateString();
         $dayAfter = now()->addDays(2)->toDateString();
-        $submitLeaveRes = $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $submitLeaveRes = $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/leaves', [
                 'type' => 'WFH',
                 'start_date' => $tomorrow,
@@ -204,12 +210,12 @@ class MobileApiTest extends TestCase
         $leaveId = $submitLeaveRes->json('data.id');
 
         // 3. Approver melihat daftar pengajuan PENDING dan menyetujuinya via HP
-        $this->withHeader('Authorization', 'Bearer ' . $mgrToken)
+        $this->withHeader('Authorization', 'Bearer '.$mgrToken)
             ->getJson('/api/leaves/approvals')
             ->assertOk()
             ->assertJsonPath('success', true);
 
-        $approveRes = $this->withHeader('Authorization', 'Bearer ' . $mgrToken)
+        $approveRes = $this->withHeader('Authorization', 'Bearer '.$mgrToken)
             ->postJson("/api/leaves/{$leaveId}/action", [
                 'status' => 'APPROVED',
             ]);
@@ -278,7 +284,7 @@ class MobileApiTest extends TestCase
         // 5. Karyawan mengecek sanksi miliknya lewat Mobile API (/api/sanctions)
         $empToken = $employee->createToken('emp-sanction-test')->plainTextToken;
 
-        $sanctionsRes = $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $sanctionsRes = $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->getJson('/api/sanctions');
 
         $sanctionsRes->assertOk()
@@ -286,11 +292,11 @@ class MobileApiTest extends TestCase
         $this->assertGreaterThanOrEqual(1, $sanctionsRes->json('summary.active_sanctions'));
 
         // 6. Uji unduh PDF Surat Peringatan (SP) di Web & Mobile API
-        $sanctionRecord = \App\Models\EmployeeSanction::where('user_id', $employee->id)->first();
+        $sanctionRecord = EmployeeSanction::where('user_id', $employee->id)->first();
         $this->actingAs($admin)->get(route('sanctions.pdf', $sanctionRecord->id))
             ->assertOk();
 
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->get("/api/sanctions/{$sanctionRecord->id}/download")
             ->assertOk();
     }
@@ -307,7 +313,7 @@ class MobileApiTest extends TestCase
             'type' => 'NASIONAL',
         ])->assertRedirect();
 
-        $effectiveDays = \App\Models\Holiday::calculateEffectiveWorkingDays(11, 2026);
+        $effectiveDays = Holiday::calculateEffectiveWorkingDays(11, 2026);
         $this->assertEquals(20, $effectiveDays); // Nov 2026 has 21 weekdays minus 1 holiday on Wed Nov 18 = 20
 
         // 2. Uji Koreksi / Input Presensi Manual oleh Super Admin
@@ -343,20 +349,20 @@ class MobileApiTest extends TestCase
         $mgrToken = $approver->createToken('mgr-edge')->plainTextToken;
 
         // 1. Morning & Evening report ditolak (422) jika belum check-in hari ini
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/reports/morning', [
                 'morning_planned_tasks' => 'Tugas sebelum absen',
             ])
             ->assertStatus(422);
 
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/reports/evening', [
                 'evening_completed_tasks' => 'Evaluasi sebelum absen',
             ])
             ->assertStatus(422);
 
         // Jika ada data report yatim hari ini tanpa presensi masuk, API tetap mengunci status report
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->getJson('/api/attendance/today')
             ->assertOk()
             ->assertJsonPath('has_checked_in', false)
@@ -364,7 +370,7 @@ class MobileApiTest extends TestCase
             ->assertJsonPath('daily_report.has_evening_report', false);
 
         // 2. Check-in WFH tanpa face_image ditolak (422)
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/attendance/wfh', [
                 'latitude' => -6.91750000,
                 'longitude' => 107.61910000,
@@ -375,7 +381,7 @@ class MobileApiTest extends TestCase
         // 3. Izin WFH (diajukan H-1) disetujui untuk hari ini (membuat row attendance tanpa time_in),
         //    lalu karyawan melakukan Mobile Check-In -> WAJIB mencatat time_in (bukan time_out)
         $this->travel(-1)->days();
-        $leaveRes = $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $leaveRes = $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->post('/api/leaves', [
                 'type' => 'WFH',
                 'start_date' => $today,
@@ -389,12 +395,12 @@ class MobileApiTest extends TestCase
         $this->assertNotEmpty($leaveRes->json('data.attachment_url'));
         $leaveId = $leaveRes->json('data.id');
 
-        $this->withHeader('Authorization', 'Bearer ' . $mgrToken)
+        $this->withHeader('Authorization', 'Bearer '.$mgrToken)
             ->postJson("/api/leaves/{$leaveId}/action", ['status' => 'APPROVED'])
             ->assertOk();
 
         // Double action pada pengajuan yang sudah APPROVED ditolak (422)
-        $this->withHeader('Authorization', 'Bearer ' . $mgrToken)
+        $this->withHeader('Authorization', 'Bearer '.$mgrToken)
             ->postJson("/api/leaves/{$leaveId}/action", [
                 'status' => 'REJECTED',
                 'rejection_reason' => 'Coba ubah ulang',
@@ -402,14 +408,14 @@ class MobileApiTest extends TestCase
             ->assertStatus(422);
 
         // Riwayat approval berdasarkan filter status=APPROVED dapat diakses
-        $this->withHeader('Authorization', 'Bearer ' . $mgrToken)
+        $this->withHeader('Authorization', 'Bearer '.$mgrToken)
             ->getJson('/api/leaves/approvals?status=APPROVED')
             ->assertOk()
             ->assertJsonPath('filter_status', 'APPROVED');
 
         // Self-approval ditolak (403)
         $tomorrow = now()->addDay()->toDateString();
-        $mgrLeaveRes = $this->withHeader('Authorization', 'Bearer ' . $mgrToken)
+        $mgrLeaveRes = $this->withHeader('Authorization', 'Bearer '.$mgrToken)
             ->postJson('/api/leaves', [
                 'type' => 'IZIN',
                 'start_date' => $tomorrow,
@@ -419,12 +425,12 @@ class MobileApiTest extends TestCase
         $mgrLeaveRes->assertStatus(201);
         $mgrLeaveId = $mgrLeaveRes->json('data.id');
 
-        $this->withHeader('Authorization', 'Bearer ' . $mgrToken)
+        $this->withHeader('Authorization', 'Bearer '.$mgrToken)
             ->postJson("/api/leaves/{$mgrLeaveId}/action", ['status' => 'APPROVED'])
             ->assertStatus(403);
 
         // Mobile Check-In pada hari WFA yang sudah disetujui -> harus isi time_in dan time_out tetap null
-        $wfhCheckIn = $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $wfhCheckIn = $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/attendance/wfh', [
                 'latitude' => -6.91750000,
                 'longitude' => 107.61910000,
@@ -437,15 +443,15 @@ class MobileApiTest extends TestCase
         $this->assertNotEmpty($wfhCheckIn->json('attendance.face_image_url'));
 
         // 4. Daily Report tidak bisa ditimpa ulang lewat /reports/morning setelah COMPLETED
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/reports/morning', ['morning_planned_tasks' => 'Task 1'])
             ->assertStatus(201);
 
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/reports/evening', ['evening_completed_tasks' => 'Task 1 selesai'])
             ->assertOk();
 
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/reports/morning', ['morning_planned_tasks' => 'Coba timpa'])
             ->assertStatus(422);
     }
@@ -471,7 +477,7 @@ class MobileApiTest extends TestCase
             $webUser = User::where('email', $webOnlyEmail)->first();
             $token = $webUser->createToken('legacy-token')->plainTextToken;
 
-            $this->withHeader('Authorization', 'Bearer ' . $token)
+            $this->withHeader('Authorization', 'Bearer '.$token)
                 ->getJson('/api/profile')
                 ->assertStatus(403);
         }
@@ -487,20 +493,20 @@ class MobileApiTest extends TestCase
         $today = now()->toDateString();
 
         Attendance::whereIn('user_id', [$employee->id, $intern->id])->whereDate('date', $today)->delete();
-        \App\Models\LeaveRequest::whereIn('user_id', [$employee->id, $intern->id])->delete();
+        LeaveRequest::whereIn('user_id', [$employee->id, $intern->id])->delete();
 
         $empToken = $employee->createToken('emp-wfa-gate')->plainTextToken;
         $mgrToken = $approver->createToken('mgr-wfa-gate')->plainTextToken;
         $internToken = $intern->createToken('intern-wfa-gate')->plainTextToken;
 
         // 1. Karyawan belum mengajukan WFA -> can_mobile_checkin = false & POST /attendance/wfh ditolak (422)
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->getJson('/api/attendance/today')
             ->assertOk()
             ->assertJsonPath('has_approved_wfa_today', false)
             ->assertJsonPath('can_mobile_checkin', false);
 
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/attendance/wfh', [
                 'latitude' => -6.9175,
                 'longitude' => 107.6191,
@@ -510,7 +516,7 @@ class MobileApiTest extends TestCase
 
         // 2. Karyawan mengajukan WFH (H-1) namun masih PENDING -> tetap ditolak (422)
         $this->travel(-1)->days();
-        $leaveRes = $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $leaveRes = $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/leaves', [
                 'type' => 'WFH',
                 'start_date' => $today,
@@ -521,13 +527,13 @@ class MobileApiTest extends TestCase
 
         $leaveId = $leaveRes->json('data.id');
 
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->getJson('/api/attendance/today')
             ->assertOk()
             ->assertJsonPath('wfa_request_today_status', 'PENDING')
             ->assertJsonPath('can_mobile_checkin', false);
 
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/attendance/wfh', [
                 'latitude' => -6.9175,
                 'longitude' => 107.6191,
@@ -537,18 +543,18 @@ class MobileApiTest extends TestCase
             ->assertJsonPath('wfa_request_today_status', 'PENDING');
 
         // 3. Setelah di-ACC (APPROVED) -> can_mobile_checkin = true & check-in WFH berhasil (201)
-        $this->withHeader('Authorization', 'Bearer ' . $mgrToken)
+        $this->withHeader('Authorization', 'Bearer '.$mgrToken)
             ->postJson("/api/leaves/{$leaveId}/action", ['status' => 'APPROVED'])
             ->assertOk();
 
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->getJson('/api/attendance/today')
             ->assertOk()
             ->assertJsonPath('has_approved_wfa_today', true)
             ->assertJsonPath('wfa_request_today_status', 'APPROVED')
             ->assertJsonPath('can_mobile_checkin', true);
 
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/attendance/wfh', [
                 'latitude' => -6.9175,
                 'longitude' => 107.6191,
@@ -558,12 +564,12 @@ class MobileApiTest extends TestCase
             ->assertJsonPath('attendance.status', 'WFA');
 
         // 4. Magang (INTERN) tetap dapat check-in harian lewat mobile tanpa pengajuan WFA (tercatat HADIR_ON_SITE)
-        $this->withHeader('Authorization', 'Bearer ' . $internToken)
+        $this->withHeader('Authorization', 'Bearer '.$internToken)
             ->getJson('/api/attendance/today')
             ->assertOk()
             ->assertJsonPath('can_mobile_checkin', true);
 
-        $this->withHeader('Authorization', 'Bearer ' . $internToken)
+        $this->withHeader('Authorization', 'Bearer '.$internToken)
             ->postJson('/api/attendance/wfh', [
                 'latitude' => -6.9175,
                 'longitude' => 107.6191,
@@ -577,27 +583,27 @@ class MobileApiTest extends TestCase
     {
         Storage::fake('public');
 
-        \App\Models\Setting::updateOrCreate(['key' => 'office_latitude'], ['value' => '-6.20880000']);
-        \App\Models\Setting::updateOrCreate(['key' => 'office_longitude'], ['value' => '106.84560000']);
-        \App\Models\Setting::updateOrCreate(['key' => 'office_radius_meters'], ['value' => '100']);
+        Setting::updateOrCreate(['key' => 'office_latitude'], ['value' => '-6.20880000']);
+        Setting::updateOrCreate(['key' => 'office_longitude'], ['value' => '106.84560000']);
+        Setting::updateOrCreate(['key' => 'office_radius_meters'], ['value' => '100']);
 
         $employee = User::where('email', 'karyawan@test.com')->first();
         $today = now()->toDateString();
 
         Attendance::where('user_id', $employee->id)->whereDate('date', $today)->delete();
-        \App\Models\LeaveRequest::where('user_id', $employee->id)->delete();
+        LeaveRequest::where('user_id', $employee->id)->delete();
 
         $empToken = $employee->createToken('emp-onsite-gps')->plainTextToken;
 
         // 1. /attendance/today melaporkan can_onsite_checkin = true & can_mobile_checkin = false
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->getJson('/api/attendance/today')
             ->assertOk()
             ->assertJsonPath('can_mobile_checkin', false)
             ->assertJsonPath('can_onsite_checkin', true);
 
         // 2. Mode ON_SITE (GPS & Foto Kantor) di LUAR radius kantor -> WAJIB ditolak (422)
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/attendance/wfh', [
                 'latitude' => -6.91750000,
                 'longitude' => 107.61910000,
@@ -608,7 +614,7 @@ class MobileApiTest extends TestCase
             ->assertJsonValidationErrors('location');
 
         // 3. Mode ON_SITE (GPS & Foto Kantor) di DALAM radius kantor -> BERHASIL (201) dengan status HADIR_ON_SITE
-        $res = $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $res = $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/attendance/wfh', [
                 'latitude' => -6.20885000,
                 'longitude' => 106.84565000,
@@ -627,9 +633,9 @@ class MobileApiTest extends TestCase
     {
         Storage::fake('public');
 
-        \App\Models\Setting::updateOrCreate(['key' => 'office_latitude'], ['value' => '-6.20880000']);
-        \App\Models\Setting::updateOrCreate(['key' => 'office_longitude'], ['value' => '106.84560000']);
-        \App\Models\Setting::updateOrCreate(['key' => 'office_radius_meters'], ['value' => '100']);
+        Setting::updateOrCreate(['key' => 'office_latitude'], ['value' => '-6.20880000']);
+        Setting::updateOrCreate(['key' => 'office_longitude'], ['value' => '106.84560000']);
+        Setting::updateOrCreate(['key' => 'office_radius_meters'], ['value' => '100']);
 
         $employee = User::where('email', 'karyawan@test.com')->first();
         $approver = User::where('email', 'manager@test.com')->first();
@@ -660,20 +666,20 @@ class MobileApiTest extends TestCase
         ]);
 
         // /attendance/today mengembalikan checkout_mode = ONSITE_GEOFENCE
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->getJson('/api/attendance/today')
             ->assertOk()
             ->assertJsonPath('can_checkout', true)
             ->assertJsonPath('checkout_mode', 'ONSITE_GEOFENCE');
 
         // Checkout tanpa foto/GPS ditolak (422)
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/attendance/checkout')
             ->assertStatus(422)
             ->assertJsonValidationErrors(['latitude', 'longitude', 'face_image']);
 
         // Checkout On-Site di LUAR radius kantor ditolak (422)
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/attendance/checkout', [
                 'latitude' => -6.91750000,
                 'longitude' => 107.61910000,
@@ -683,7 +689,7 @@ class MobileApiTest extends TestCase
             ->assertJsonPath('is_within_radius', false);
 
         // Checkout On-Site di DALAM radius kantor + foto selfie -> BERHASIL (200)
-        $onsiteOut = $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $onsiteOut = $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/attendance/checkout', [
                 'latitude' => -6.20885000,
                 'longitude' => 106.84565000,
@@ -713,12 +719,12 @@ class MobileApiTest extends TestCase
             'status' => 'COMPLETED',
         ]);
 
-        $this->withHeader('Authorization', 'Bearer ' . $mgrToken)
+        $this->withHeader('Authorization', 'Bearer '.$mgrToken)
             ->getJson('/api/attendance/today')
             ->assertOk()
             ->assertJsonPath('checkout_mode', 'MOBILE_FREE');
 
-        $wfaOut = $this->withHeader('Authorization', 'Bearer ' . $mgrToken)
+        $wfaOut = $this->withHeader('Authorization', 'Bearer '.$mgrToken)
             ->postJson('/api/attendance/checkout', [
                 'latitude' => -6.91750000,
                 'longitude' => 107.61910000,
@@ -745,7 +751,7 @@ class MobileApiTest extends TestCase
         ])->assertRedirect();
 
         // 2. Endpoint /api/attendance/today mengembalikan jadwal kerja dinamis
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->getJson('/api/attendance/today')
             ->assertOk()
             ->assertJsonPath('work_schedule.work_start_time', '09:00')
@@ -754,12 +760,12 @@ class MobileApiTest extends TestCase
             ->assertJsonPath('work_schedule.overtime_tolerance_minutes', 30);
 
         // 3. Verifikasi kalkulasi terlambat & lembur mengikuti jam dinamis (09:00 - 18:00)
-        $service = app(\App\Services\AttendanceService::class);
-        $this->assertFalse($service->isLateAt(\Carbon\Carbon::parse('2026-11-24 09:10:00')));
-        $this->assertTrue($service->isLateAt(\Carbon\Carbon::parse('2026-11-24 09:16:00')));
-        $this->assertEquals(0, $service->calculateOvertimeHours(\Carbon\Carbon::parse('2026-11-24 18:20:00')));
-        $this->assertEquals(1, $service->calculateOvertimeHours(\Carbon\Carbon::parse('2026-11-24 19:05:00')));
-        $this->assertEquals(2, $service->calculateOvertimeHours(\Carbon\Carbon::parse('2026-11-24 20:15:00')));
+        $service = app(AttendanceService::class);
+        $this->assertFalse($service->isLateAt(Carbon::parse('2026-11-24 09:10:00')));
+        $this->assertTrue($service->isLateAt(Carbon::parse('2026-11-24 09:16:00')));
+        $this->assertEquals(0, $service->calculateOvertimeHours(Carbon::parse('2026-11-24 18:20:00')));
+        $this->assertEquals(1, $service->calculateOvertimeHours(Carbon::parse('2026-11-24 19:05:00')));
+        $this->assertEquals(2, $service->calculateOvertimeHours(Carbon::parse('2026-11-24 20:15:00')));
     }
 
     public function test_public_branding_endpoint_reflects_web_settings_changes(): void
@@ -793,13 +799,13 @@ class MobileApiTest extends TestCase
 
         Attendance::whereIn('user_id', [$employee->id, $approver->id])->whereDate('date', $today)->delete();
         DailyReport::whereIn('user_id', [$employee->id, $approver->id])->whereDate('date', $today)->delete();
-        \App\Models\LeaveRequest::whereIn('user_id', [$employee->id, $approver->id])->delete();
+        LeaveRequest::whereIn('user_id', [$employee->id, $approver->id])->delete();
 
         $empToken = $employee->createToken('emp-leave-rules')->plainTextToken;
         $mgrToken = $approver->createToken('mgr-leave-rules')->plainTextToken;
 
         // 1. CUTI wajib minimal H-7 (seminggu sebelumnya)
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/leaves', [
                 'type' => 'CUTI',
                 'start_date' => $plus6Days,
@@ -809,7 +815,7 @@ class MobileApiTest extends TestCase
             ->assertStatus(422)
             ->assertJsonValidationErrors('start_date');
 
-        $cutiRes = $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $cutiRes = $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/leaves', [
                 'type' => 'CUTI',
                 'start_date' => $plus7Days,
@@ -820,8 +826,8 @@ class MobileApiTest extends TestCase
             ->assertJsonPath('data.type', 'CUTI')
             ->assertJsonPath('data.status', 'PENDING');
 
-        $this->withHeader('Authorization', 'Bearer ' . $mgrToken)
-            ->postJson('/api/leaves/' . $cutiRes->json('data.id') . '/action', ['status' => 'APPROVED'])
+        $this->withHeader('Authorization', 'Bearer '.$mgrToken)
+            ->postJson('/api/leaves/'.$cutiRes->json('data.id').'/action', ['status' => 'APPROVED'])
             ->assertOk();
 
         $this->assertDatabaseHas('attendances', [
@@ -831,7 +837,7 @@ class MobileApiTest extends TestCase
         ]);
 
         // 2. IZIN wajib minimal H-1 (1 hari sebelumnya)
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/leaves', [
                 'type' => 'IZIN',
                 'start_date' => $today,
@@ -841,7 +847,7 @@ class MobileApiTest extends TestCase
             ->assertStatus(422)
             ->assertJsonValidationErrors('start_date');
 
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/leaves', [
                 'type' => 'IZIN',
                 'start_date' => $tomorrow,
@@ -852,7 +858,7 @@ class MobileApiTest extends TestCase
             ->assertJsonPath('data.status', 'PENDING');
 
         // 3. WFH wajib minimal H-1 (1 hari sebelumnya)
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/leaves', [
                 'type' => 'WFH',
                 'start_date' => $today,
@@ -862,7 +868,7 @@ class MobileApiTest extends TestCase
             ->assertStatus(422)
             ->assertJsonValidationErrors('start_date');
 
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/leaves', [
                 'type' => 'WFH',
                 'start_date' => $tomorrow,
@@ -874,7 +880,7 @@ class MobileApiTest extends TestCase
             ->assertJsonPath('data.status', 'PENDING');
 
         // 4. SAKIT langsung APPROVED otomatis tanpa perlu ACC atasan + langsung mengisi presensi
-        $sakitRes = $this->withHeader('Authorization', 'Bearer ' . $mgrToken)
+        $sakitRes = $this->withHeader('Authorization', 'Bearer '.$mgrToken)
             ->postJson('/api/leaves', [
                 'type' => 'SAKIT',
                 'start_date' => $today,
@@ -893,7 +899,7 @@ class MobileApiTest extends TestCase
         ]);
 
         // Status /attendance/today langsung mendeteksi is_on_leave_today = true beserta detail izin/cuti/sakit
-        $this->withHeader('Authorization', 'Bearer ' . $mgrToken)
+        $this->withHeader('Authorization', 'Bearer '.$mgrToken)
             ->getJson('/api/attendance/today')
             ->assertOk()
             ->assertJsonPath('is_on_leave_today', true)
@@ -904,7 +910,7 @@ class MobileApiTest extends TestCase
             ->assertJsonPath('can_onsite_checkin', false);
 
         // 5. TUGAS_LUAR dapat diajukan hari ini, di-ACC, lalu membuka presensi Mobile (bebas radius + selfie)
-        $tlRes = $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $tlRes = $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/leaves', [
                 'type' => 'TUGAS_LUAR',
                 'start_date' => $today,
@@ -915,17 +921,17 @@ class MobileApiTest extends TestCase
             ->assertJsonPath('data.type', 'TUGAS_LUAR')
             ->assertJsonPath('data.status', 'PENDING');
 
-        $this->withHeader('Authorization', 'Bearer ' . $mgrToken)
-            ->postJson('/api/leaves/' . $tlRes->json('data.id') . '/action', ['status' => 'APPROVED'])
+        $this->withHeader('Authorization', 'Bearer '.$mgrToken)
+            ->postJson('/api/leaves/'.$tlRes->json('data.id').'/action', ['status' => 'APPROVED'])
             ->assertOk();
 
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->getJson('/api/attendance/today')
             ->assertOk()
             ->assertJsonPath('has_approved_tugas_luar_today', true)
             ->assertJsonPath('can_mobile_checkin', true);
 
-        $tlCheckIn = $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $tlCheckIn = $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/attendance/wfh', [
                 'latitude' => -6.91750000,
                 'longitude' => 107.61910000,
@@ -936,7 +942,7 @@ class MobileApiTest extends TestCase
             ->assertJsonPath('attendance.status', 'TUGAS_LUAR');
 
         // 6. Setelah sudah melakukan presensi masuk hari ini, pengajuan SAKIT untuk hari ini WAJIB ditolak (422)
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/leaves', [
                 'type' => 'SAKIT',
                 'start_date' => $today,
@@ -958,7 +964,7 @@ class MobileApiTest extends TestCase
         $otherToken = $other->createToken('other-edit-leave')->plainTextToken;
 
         // 1. Buat pengajuan IZIN berstatus PENDING
-        $createRes = $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $createRes = $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/leaves', [
                 'type' => 'IZIN',
                 'start_date' => $tomorrow,
@@ -969,7 +975,7 @@ class MobileApiTest extends TestCase
         $leaveId = $createRes->json('data.id');
 
         // 2. Pegawai lain tidak boleh mengedit atau membatalkan (403)
-        $this->withHeader('Authorization', 'Bearer ' . $otherToken)
+        $this->withHeader('Authorization', 'Bearer '.$otherToken)
             ->postJson("/api/leaves/{$leaveId}/update", [
                 'type' => 'WFA',
                 'start_date' => $tomorrow,
@@ -978,12 +984,12 @@ class MobileApiTest extends TestCase
             ])
             ->assertStatus(403);
 
-        $this->withHeader('Authorization', 'Bearer ' . $otherToken)
+        $this->withHeader('Authorization', 'Bearer '.$otherToken)
             ->deleteJson("/api/leaves/{$leaveId}")
             ->assertStatus(403);
 
         // 3. Pemilik dapat mengedit pengajuan PENDING
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson("/api/leaves/{$leaveId}/update", [
                 'type' => 'WFA',
                 'start_date' => $tomorrow,
@@ -995,7 +1001,7 @@ class MobileApiTest extends TestCase
             ->assertJsonPath('data.reason', 'Diubah menjadi WFA koordinasi proyek');
 
         // 4. Pemilik dapat membatalkan pengajuan PENDING
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->deleteJson("/api/leaves/{$leaveId}")
             ->assertOk()
             ->assertJsonPath('success', true);
@@ -1003,7 +1009,7 @@ class MobileApiTest extends TestCase
         $this->assertDatabaseMissing('leave_requests', ['id' => $leaveId]);
 
         // 5. Pengajuan yang sudah APPROVED tidak dapat diedit atau dibatalkan (422)
-        $approvedCreate = $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $approvedCreate = $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson('/api/leaves', [
                 'type' => 'IZIN',
                 'start_date' => $tomorrow,
@@ -1012,11 +1018,11 @@ class MobileApiTest extends TestCase
             ])->assertStatus(201);
         $approvedId = $approvedCreate->json('data.id');
 
-        $this->withHeader('Authorization', 'Bearer ' . $otherToken)
+        $this->withHeader('Authorization', 'Bearer '.$otherToken)
             ->postJson("/api/leaves/{$approvedId}/action", ['status' => 'APPROVED'])
             ->assertOk();
 
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->postJson("/api/leaves/{$approvedId}/update", [
                 'type' => 'WFA',
                 'start_date' => $tomorrow,
@@ -1025,7 +1031,7 @@ class MobileApiTest extends TestCase
             ])
             ->assertStatus(422);
 
-        $this->withHeader('Authorization', 'Bearer ' . $empToken)
+        $this->withHeader('Authorization', 'Bearer '.$empToken)
             ->deleteJson("/api/leaves/{$approvedId}")
             ->assertStatus(422);
     }
@@ -1038,7 +1044,7 @@ class MobileApiTest extends TestCase
         $token = $employee->createToken('profile-photo-test')->plainTextToken;
 
         // 1. Upload foto profil pertama
-        $uploadRes = $this->withHeader('Authorization', 'Bearer ' . $token)
+        $uploadRes = $this->withHeader('Authorization', 'Bearer '.$token)
             ->post('/api/profile/photo', [
                 'photo' => UploadedFile::fake()->image('avatar-1.jpg', 300, 300),
             ], ['Accept' => 'application/json']);
@@ -1048,11 +1054,11 @@ class MobileApiTest extends TestCase
 
         $firstPath = $uploadRes->json('data.profile_photo_path');
         $this->assertNotEmpty($firstPath);
-        $this->assertStringContainsString('/storage/' . $firstPath, (string) $uploadRes->json('data.profile_photo_url'));
+        $this->assertStringContainsString('/storage/'.$firstPath, (string) $uploadRes->json('data.profile_photo_url'));
         Storage::disk('public')->assertExists($firstPath);
 
         // 2. Ganti foto profil baru -> foto lama otomatis terhapus
-        $replaceRes = $this->withHeader('Authorization', 'Bearer ' . $token)
+        $replaceRes = $this->withHeader('Authorization', 'Bearer '.$token)
             ->post('/api/profile/photo', [
                 'photo' => UploadedFile::fake()->image('avatar-2.png', 300, 300),
             ], ['Accept' => 'application/json']);
@@ -1064,13 +1070,13 @@ class MobileApiTest extends TestCase
         Storage::disk('public')->assertExists($secondPath);
 
         // 3. GET /api/profile mengembalikan profile_photo_url terbaru
-        $this->withHeader('Authorization', 'Bearer ' . $token)
+        $this->withHeader('Authorization', 'Bearer '.$token)
             ->getJson('/api/profile')
             ->assertOk()
             ->assertJsonPath('data.profile_photo_path', $secondPath);
 
         // 4. Hapus foto profil
-        $deleteRes = $this->withHeader('Authorization', 'Bearer ' . $token)
+        $deleteRes = $this->withHeader('Authorization', 'Bearer '.$token)
             ->deleteJson('/api/profile/photo');
 
         $deleteRes->assertOk()
@@ -1079,5 +1085,82 @@ class MobileApiTest extends TestCase
             ->assertJsonPath('data.profile_photo_url', null);
 
         Storage::disk('public')->assertMissing($secondPath);
+    }
+
+    public function test_leave_overlap_sakit_backdate_limit_and_cross_midnight_checkout(): void
+    {
+        Storage::fake('public');
+
+        $employee = User::where('email', 'karyawan@test.com')->first();
+        $token = $employee->createToken('edge-policy-test')->plainTextToken;
+        $plus10Days = now()->addDays(10)->toDateString();
+        $tooOldSakit = now()->subDays(10)->toDateString();
+
+        // 1. SAKIT lebih dari 7 hari ke belakang wajib ditolak (422)
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/leaves', [
+                'type' => 'SAKIT',
+                'start_date' => $tooOldSakit,
+                'end_date' => $tooOldSakit,
+                'reason' => 'Sakit 10 hari lalu',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('start_date');
+
+        // 2. Pengajuan tanggal bentrok dengan pengajuan aktif wajib ditolak (422)
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/leaves', [
+                'type' => 'CUTI',
+                'start_date' => $plus10Days,
+                'end_date' => $plus10Days,
+                'reason' => 'Cuti pertama',
+            ])
+            ->assertStatus(201);
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/leaves', [
+                'type' => 'CUTI',
+                'start_date' => $plus10Days,
+                'end_date' => $plus10Days,
+                'reason' => 'Cuti tumpang tindih',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('start_date');
+
+        // 3. Checkout lintas tengah malam (check-in kemarin tanpa check-out) tetap bisa evaluasi sore & checkout hari ini
+        $yesterday = now()->subDay()->toDateString();
+        $today = now()->toDateString();
+        Attendance::where('user_id', $employee->id)->whereIn('date', [$yesterday, $today])->delete();
+        DailyReport::where('user_id', $employee->id)->whereIn('date', [$yesterday, $today])->delete();
+
+        Attendance::create([
+            'user_id' => $employee->id,
+            'date' => $yesterday,
+            'time_in' => '19:00:00',
+            'status' => 'WFA',
+            'method' => 'FACIAL_LOCATION',
+            'is_late' => false,
+            'overtime_hours' => 0,
+        ]);
+
+        DailyReport::create([
+            'user_id' => $employee->id,
+            'date' => $yesterday,
+            'morning_planned_tasks' => '1. Shift lembur malam',
+            'evening_completed_tasks' => '1. Shift lembur malam selesai',
+            'status' => 'COMPLETED',
+        ]);
+
+        $crossOut = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/attendance/checkout', [
+                'latitude' => -6.91750000,
+                'longitude' => 107.61910000,
+                'face_image' => UploadedFile::fake()->image('cross_midnight_out.jpg'),
+            ]);
+
+        $crossOut->assertOk()
+            ->assertJsonPath('success', true);
+        $this->assertNotNull($crossOut->json('attendance.time_out'));
+        $this->assertGreaterThan(0, (int) $crossOut->json('overtime_hours'));
     }
 }

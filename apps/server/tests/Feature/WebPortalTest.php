@@ -2,7 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\LeaveRequest;
+use App\Models\Role;
+use App\Models\Setting;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -51,7 +55,7 @@ class WebPortalTest extends TestCase
             $today = now()->toDateString();
 
             return $recent->getCollection()->every(
-                fn ($att) => \Carbon\Carbon::parse($att->date)->toDateString() === $today
+                fn ($att) => Carbon::parse($att->date)->toDateString() === $today
             );
         });
 
@@ -59,7 +63,7 @@ class WebPortalTest extends TestCase
         $dailyTaskResponse = $this->actingAs($user)->get(route('reports.daily-tasks'));
         $dailyTaskResponse->assertOk();
         $dailyTaskResponse->assertViewHas('users', function ($users) {
-            return !$users->pluck('email')->contains('ceo@test.com');
+            return ! $users->pluck('email')->contains('ceo@test.com');
         });
     }
 
@@ -87,7 +91,7 @@ class WebPortalTest extends TestCase
         $approver = User::where('email', 'manager@test.com')->first();
         $employee = User::where('email', 'karyawan@test.com')->first();
 
-        $leave = \App\Models\LeaveRequest::create([
+        $leave = LeaveRequest::create([
             'user_id' => $employee->id,
             'type' => 'SAKIT',
             'start_date' => '2026-10-20',
@@ -122,7 +126,7 @@ class WebPortalTest extends TestCase
     public function test_admin_can_create_and_update_user_with_roles(): void
     {
         $admin = User::where('email', 'admin@test.com')->first();
-        $role = \App\Models\Role::first();
+        $role = Role::first();
 
         // 1. Create employee
         $createResponse = $this->actingAs($admin)->post(route('admin.users.store'), [
@@ -237,5 +241,87 @@ class WebPortalTest extends TestCase
         $admin->refresh();
         $this->assertNull($admin->profile_photo_path);
         Storage::disk('public')->assertMissing($oldPath);
+    }
+
+    public function test_web_approval_and_daily_task_authorization_guards(): void
+    {
+        $ceo = User::where('email', 'ceo@test.com')->first();
+        $ceo->update(['can_approve_leaves' => false]);
+        $admin = User::where('email', 'admin@test.com')->first();
+        $employee = User::where('email', 'karyawan@test.com')->first();
+
+        $leave = LeaveRequest::create([
+            'user_id' => $employee->id,
+            'type' => 'IZIN',
+            'start_date' => '2026-12-20',
+            'end_date' => '2026-12-20',
+            'reason' => 'Uji otorisasi approval web',
+            'status' => 'PENDING',
+        ]);
+
+        // 1. CEO tanpa can_approve_leaves ditolak (403) pada /approvals & aksi approve/reject
+        $this->actingAs($ceo)->get(route('approval.index'))->assertForbidden();
+        $this->actingAs($ceo)->patch(route('approval.approve', $leave))->assertForbidden();
+        $this->actingAs($ceo)->patch(route('approval.reject', $leave), ['rejection_reason' => 'Coba tolak'])->assertForbidden();
+
+        // 2. CEO ditolak (403) melakukan write pada /reports/daily-tasks
+        $this->actingAs($ceo)->post(route('reports.daily-tasks.store'), [
+            'user_id' => $employee->id,
+            'date' => '2026-12-20',
+            'morning_planned_tasks' => 'Coba isi CEO',
+        ])->assertForbidden();
+
+        // 3. Approver tidak dapat menyetujui pengajuan miliknya sendiri (403)
+        $selfLeave = LeaveRequest::create([
+            'user_id' => $admin->id,
+            'type' => 'IZIN',
+            'start_date' => '2026-12-21',
+            'end_date' => '2026-12-21',
+            'reason' => 'Izin milik admin sendiri',
+            'status' => 'PENDING',
+        ]);
+        $this->actingAs($admin)->patch(route('approval.approve', $selfLeave))->assertForbidden();
+
+        // 4. Pengajuan yang sudah APPROVED tidak dapat ditimpa menjadi REJECTED
+        $this->actingAs($admin)->patch(route('approval.approve', $leave))->assertRedirect();
+        $this->actingAs($admin)->patch(route('approval.reject', $leave), ['rejection_reason' => 'Timpa status'])->assertRedirect();
+        $this->assertEquals('APPROVED', $leave->fresh()->status);
+
+        // 5. SettingController menolak SVG berbahaya yang mengandung <script>
+        $maliciousSvg = UploadedFile::fake()->createWithContent(
+            'xss.svg',
+            '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script><circle cx="10" cy="10" r="5"/></svg>'
+        );
+        $svgRes = $this->actingAs($admin)->put(route('admin.settings.update'), [
+            'late_tolerance_minutes' => 15,
+            'overtime_tolerance_minutes' => 30,
+            'app_logo' => $maliciousSvg,
+        ]);
+        $svgRes->assertRedirect();
+        $savedPath = Setting::getValue('app_logo_path', '');
+        $this->assertNotEmpty($savedPath);
+        $fullLogoPath = public_path($savedPath);
+        $this->assertFileExists($fullLogoPath);
+        $this->assertStringNotContainsString('<script', strtolower((string) file_get_contents($fullLogoPath)));
+        @unlink($fullLogoPath);
+
+        // 6. SanctionRule store menormalkan kode ke uppercase sebelum cek unik & mewajibkan threshold pada AUTO_LATE
+        $this->actingAs($admin)->post(route('sanctions.rules.store'), [
+            'code' => 'auto-late-dup',
+            'name' => 'Test Case Sensitive Rule',
+            'category' => 'DISIPLIN_WAKTU',
+            'trigger_type' => 'AUTO_LATE',
+            'threshold_count' => 4,
+            'default_level' => 'TEGURAN_LISAN',
+        ])->assertRedirect();
+
+        $this->actingAs($admin)->post(route('sanctions.rules.store'), [
+            'code' => 'AUTO-LATE-DUP',
+            'name' => 'Duplikat Kapital',
+            'category' => 'DISIPLIN_WAKTU',
+            'trigger_type' => 'AUTO_LATE',
+            'threshold_count' => 4,
+            'default_level' => 'TEGURAN_LISAN',
+        ])->assertSessionHasErrors('code');
     }
 }

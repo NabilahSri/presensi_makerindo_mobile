@@ -10,6 +10,11 @@ use App\Http\Controllers\Executive\DashboardController as ExecutiveDashboardCont
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SanctionController;
+use App\Models\Attendance;
+use App\Models\DailyReport;
+use App\Models\LeaveRequest;
+use App\Services\AttendanceService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -70,7 +75,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('/rules/{sanctionRule}', [SanctionController::class, 'destroyRule'])->name('rules.destroy');
     });
 
-    // Reports & Rekapitulasi Routes (Super Admin & CEO)
+    // Reports & Rekapitulasi Routes (Super Admin & CEO read-only)
     Route::middleware('role:super_admin,ceo')->prefix('reports')->name('reports.')->group(function () {
         Route::get('/', [ReportController::class, 'index'])->name('index');
         Route::get('/attendances', [ReportController::class, 'attendances'])->name('attendances');
@@ -79,37 +84,91 @@ Route::middleware('auth')->group(function () {
         Route::get('/leaves/export', [ReportController::class, 'exportLeaves'])->name('leaves.export');
         Route::get('/daily-tasks', [ReportController::class, 'dailyTasks'])->name('daily-tasks');
         Route::get('/daily-tasks/export', [ReportController::class, 'exportDailyTasks'])->name('daily-tasks.export');
-        Route::post('/daily-tasks', [ReportController::class, 'storeDailyTask'])->name('daily-tasks.store');
-        Route::put('/daily-tasks/{dailyReport}', [ReportController::class, 'updateDailyTask'])->name('daily-tasks.update');
     });
 
-    // Location Attendance Check-in Route (GPS Web Portal)
-    Route::post('/attendances/location-check-in', [AttendanceController::class, 'locationCheckIn'])->name('attendances.location-check-in');
+    // Write endpoints khusus Super Admin untuk Daily Tasks & Web Location Check-in
+    Route::middleware('role:super_admin')->group(function () {
+        Route::post('/reports/daily-tasks', [ReportController::class, 'storeDailyTask'])->name('reports.daily-tasks.store');
+        Route::put('/reports/daily-tasks/{dailyReport}', [ReportController::class, 'updateDailyTask'])->name('reports.daily-tasks.update');
+        Route::post('/attendances/location-check-in', [AttendanceController::class, 'locationCheckIn'])->name('attendances.location-check-in');
+    });
 });
 
-// API Endpoint for Location Attendance Check-in (Mobile / External GPS Sync)
-Route::post('/api/attendances/location-check-in', function (\Illuminate\Http\Request $request, \App\Services\AttendanceService $attendanceService) {
+// API Endpoint for Location Attendance Check-in (Terproteksi Bearer Token + Kebijakan Mobile)
+Route::middleware('auth.api')->post('/api/attendances/location-check-in', function (Request $request, AttendanceService $attendanceService) {
     $validated = $request->validate([
-        'user_id' => 'nullable|uuid|exists:users,id',
-        'email' => 'nullable|email|exists:users,email',
         'latitude' => 'required|numeric|between:-90,90',
         'longitude' => 'required|numeric|between:-180,180',
         'presence_type' => 'required|in:ON_SITE,WFA,TUGAS_LUAR,AUTO',
         'notes' => 'nullable|string|max:255',
     ]);
 
-    $user = null;
-    if (!empty($validated['user_id'])) {
-        $user = \App\Models\User::find($validated['user_id']);
-    } elseif (!empty($validated['email'])) {
-        $user = \App\Models\User::where('email', $validated['email'])->first();
+    $user = $request->user();
+    $today = now()->toDateString();
+
+    $existing = Attendance::where('user_id', $user->id)
+        ->whereDate('date', $today)
+        ->first();
+
+    // Jika sudah check-in dan belum check-out -> proses check-out wajib lulus gate Daily Report sore COMPLETED
+    if ($existing && $existing->time_in && $existing->time_out === null) {
+        $dailyReport = DailyReport::where('user_id', $user->id)
+            ->whereDate('date', $today)
+            ->first();
+
+        if (! $dailyReport || $dailyReport->status !== 'COMPLETED') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda wajib menyelesaikan evaluasi laporan tugas sore hingga selesai sebelum melakukan presensi pulang.',
+                'daily_report_status' => $dailyReport?->status ?? 'NOT_SUBMITTED',
+            ], 422);
+        }
     }
 
-    if (!$user) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Pengguna tidak ditemukan. Kirimkan parameter user_id atau email yang valid.',
-        ], 404);
+    // Jika belum check-in dan bukan magang -> wajib patuhi kebijakan izin WFA / TUGAS_LUAR
+    if ((! $existing || ! $existing->time_in) && $user->employment_type !== 'INTERN') {
+        $requestedType = $validated['presence_type'];
+
+        if ($requestedType === 'WFA') {
+            $hasApprovedWfa = LeaveRequest::where('user_id', $user->id)
+                ->where('type', 'WFA')
+                ->where('status', 'APPROVED')
+                ->whereDate('start_date', '<=', $today)
+                ->whereDate('end_date', '>=', $today)
+                ->exists();
+
+            if (! $hasApprovedWfa) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Presensi WFA hanya dapat dilakukan jika pengajuan WFA Anda untuk hari ini sudah disetujui (APPROVED).',
+                ], 422);
+            }
+        } elseif ($requestedType === 'TUGAS_LUAR') {
+            $hasApprovedTugasLuar = LeaveRequest::where('user_id', $user->id)
+                ->where('type', 'TUGAS_LUAR')
+                ->where('status', 'APPROVED')
+                ->whereDate('start_date', '<=', $today)
+                ->whereDate('end_date', '>=', $today)
+                ->exists();
+
+            if (! $hasApprovedTugasLuar) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Presensi Tugas Luar hanya dapat dilakukan jika pengajuan Tugas Luar Anda untuk hari ini sudah disetujui (APPROVED).',
+                ], 422);
+            }
+        } elseif ($requestedType === 'AUTO') {
+            $hasApprovedWfa = LeaveRequest::where('user_id', $user->id)
+                ->where('type', 'WFA')
+                ->where('status', 'APPROVED')
+                ->whereDate('start_date', '<=', $today)
+                ->whereDate('end_date', '>=', $today)
+                ->exists();
+
+            if (! $hasApprovedWfa) {
+                $validated['presence_type'] = 'ON_SITE';
+            }
+        }
     }
 
     $result = $attendanceService->recordLocationAttendance(

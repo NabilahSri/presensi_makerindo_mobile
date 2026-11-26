@@ -61,22 +61,30 @@ class DashboardController extends Controller
         }
 
         // 2. ANALITIK KEDISIPLINAN & TINGKAT KEHADIRAN (ATTENDANCE ANALYTICS)
-        $allAttendances = Attendance::all();
-        $totalAttendanceRecords = max(1, $allAttendances->count());
-        $onsiteCount = $allAttendances->whereIn('status', ['HADIR_ON_SITE', 'TUGAS_LUAR'])->count();
-        $wfaCount = $allAttendances->where('status', 'WFA')->count();
-        $sakitIzinAlphaCount = $allAttendances->whereIn('status', ['CUTI', 'SAKIT', 'IZIN', 'ALPHA'])->count();
-        $lateCount = $allAttendances->where('is_late', true)->count();
+        $agg = Attendance::selectRaw("
+            COUNT(*) as total_records,
+            SUM(CASE WHEN status IN ('HADIR_ON_SITE', 'TUGAS_LUAR') THEN 1 ELSE 0 END) as onsite_count,
+            SUM(CASE WHEN status = 'WFA' THEN 1 ELSE 0 END) as wfa_count,
+            SUM(CASE WHEN status IN ('CUTI', 'SAKIT', 'IZIN', 'ALPHA') THEN 1 ELSE 0 END) as absence_count,
+            SUM(CASE WHEN is_late = 1 THEN 1 ELSE 0 END) as late_count
+        ")->first();
+
+        $totalRawRecords = (int) ($agg->total_records ?? 0);
+        $totalAttendanceRecords = max(1, $totalRawRecords);
+        $onsiteCount = (int) ($agg->onsite_count ?? 0);
+        $wfaCount = (int) ($agg->wfa_count ?? 0);
+        $sakitIzinAlphaCount = (int) ($agg->absence_count ?? 0);
+        $lateCount = (int) ($agg->late_count ?? 0);
         $presentCount = max(1, $onsiteCount + $wfaCount);
 
         $attendanceAnalytics = [
-            'total_records' => $allAttendances->count(),
+            'total_records' => $totalRawRecords,
             'onsite_count' => $onsiteCount,
-            'onsite_pct' => $allAttendances->isNotEmpty() ? round(($onsiteCount / $totalAttendanceRecords) * 100, 1) : 0,
+            'onsite_pct' => $totalRawRecords > 0 ? round(($onsiteCount / $totalAttendanceRecords) * 100, 1) : 0,
             'wfa_count' => $wfaCount,
-            'wfa_pct' => $allAttendances->isNotEmpty() ? round(($wfaCount / $totalAttendanceRecords) * 100, 1) : 0,
+            'wfa_pct' => $totalRawRecords > 0 ? round(($wfaCount / $totalAttendanceRecords) * 100, 1) : 0,
             'absence_count' => $sakitIzinAlphaCount,
-            'absence_pct' => $allAttendances->isNotEmpty() ? round(($sakitIzinAlphaCount / $totalAttendanceRecords) * 100, 1) : 0,
+            'absence_pct' => $totalRawRecords > 0 ? round(($sakitIzinAlphaCount / $totalAttendanceRecords) * 100, 1) : 0,
             'late_count' => $lateCount,
             'discipline_pct' => ($onsiteCount + $wfaCount) > 0
                 ? round((($presentCount - $lateCount) / $presentCount) * 100, 1)
@@ -93,21 +101,25 @@ class DashboardController extends Controller
             $q->where('is_attendance_required', false);
         })->count();
 
-        $allDailyReports = DailyReport::all();
+        $allDailyReports = DailyReport::select([
+            'evening_completed_tasks',
+            'evening_pending_tasks',
+            'evening_additional_tasks',
+        ])->get();
         $completedTaskItems = 0;
         $pendingTaskItems = 0;
         $additionalTaskItems = 0;
 
         foreach ($allDailyReports as $dr) {
-            if (!empty($dr->evening_completed_tasks)) {
+            if (! empty($dr->evening_completed_tasks)) {
                 $lines = array_filter(array_map('trim', preg_split('/\r?\n/', $dr->evening_completed_tasks)));
                 $completedTaskItems += count($lines);
             }
-            if (!empty($dr->evening_pending_tasks)) {
+            if (! empty($dr->evening_pending_tasks)) {
                 $lines = array_filter(array_map('trim', preg_split('/\r?\n/', $dr->evening_pending_tasks)));
                 $pendingTaskItems += count($lines);
             }
-            if (!empty($dr->evening_additional_tasks)) {
+            if (! empty($dr->evening_additional_tasks)) {
                 $lines = array_filter(array_map('trim', preg_split('/\r?\n/', $dr->evening_additional_tasks)));
                 $additionalTaskItems += count($lines);
             }

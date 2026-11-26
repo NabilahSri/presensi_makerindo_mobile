@@ -289,7 +289,7 @@
                                                 <!-- Tombol Update Sore Berbasis Daftar Periksa -->
                                                 @if ($report->status === 'MORNING_ONLY')
                                                     <button type="button"
-                                                        onclick="openUpdateEveningModal('{{ route('reports.daily-tasks.update', $report->id) }}', '{{ $u->name }}', {{ json_encode($report->morning_planned_tasks) }}, {{ json_encode($report->evening_additional_tasks ?? '') }}, {{ json_encode($report->evening_completed_tasks ?? '') }})"
+                                                        onclick="openUpdateEveningModal('{{ route('reports.daily-tasks.update', $report->id) }}', {{ json_encode($u->name) }}, {{ json_encode($report->morning_planned_tasks) }}, {{ json_encode($report->evening_additional_tasks ?? '') }}, {{ json_encode($report->evening_completed_tasks ?? '') }})"
                                                         class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold shadow-2xs transition cursor-pointer flex items-center gap-1.5">
                                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor"
                                                             viewBox="0 0 24 24">
@@ -301,7 +301,7 @@
                                                     </button>
                                                 @else
                                                     <button type="button"
-                                                        onclick="openUpdateEveningModal('{{ route('reports.daily-tasks.update', $report->id) }}', '{{ $u->name }}', {{ json_encode($report->morning_planned_tasks) }}, {{ json_encode($report->evening_additional_tasks ?? '') }}, {{ json_encode($report->evening_completed_tasks ?? '') }})"
+                                                        onclick="openUpdateEveningModal('{{ route('reports.daily-tasks.update', $report->id) }}', {{ json_encode($u->name) }}, {{ json_encode($report->morning_planned_tasks) }}, {{ json_encode($report->evening_additional_tasks ?? '') }}, {{ json_encode($report->evening_completed_tasks ?? '') }})"
                                                         class="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-medium transition cursor-pointer"
                                                         title="Ubah Evaluasi Sore">
                                                         Ubah
@@ -311,7 +311,7 @@
                                         @else
                                             @if (!auth()->user()->hasRole('ceo') || auth()->user()->hasRole('super_admin'))
                                                 <button type="button"
-                                                    onclick="openCreateModalForUser('{{ $u->id }}', '{{ $u->name }}', '{{ \Carbon\Carbon::parse($date)->translatedFormat('l, d F Y') }}')"
+                                                    onclick="openCreateModalForUser('{{ $u->id }}', {{ json_encode($u->name) }}, '{{ \Carbon\Carbon::parse($date)->translatedFormat('l, d F Y') }}')"
                                                     class="px-3 py-1.5 rounded-xl bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200 text-xs font-semibold transition cursor-pointer">
                                                     Isi Laporan
                                                 </button>

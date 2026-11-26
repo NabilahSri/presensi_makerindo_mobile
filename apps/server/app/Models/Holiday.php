@@ -36,14 +36,14 @@ class Holiday extends Model
         $holidays = self::whereYear('date', $year)
             ->whereMonth('date', $month)
             ->pluck('date')
-            ->map(fn($d) => Carbon::parse($d)->toDateString())
+            ->map(fn ($d) => Carbon::parse($d)->toDateString())
             ->toArray();
 
         $workingDays = 0;
         $period = CarbonPeriod::create($start, $end);
 
         foreach ($period as $day) {
-            if ($day->isWeekday() && !in_array($day->toDateString(), $holidays, true)) {
+            if ($day->isWeekday() && ! in_array($day->toDateString(), $holidays, true)) {
                 $workingDays++;
             }
         }

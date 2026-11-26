@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UserRequest extends FormRequest
@@ -14,7 +15,7 @@ class UserRequest extends FormRequest
     public function rules(): array
     {
         $user = $this->route('user');
-        $userId = $user instanceof \App\Models\User ? $user->id : $user;
+        $userId = $user instanceof User ? $user->id : $user;
 
         return [
             'name' => 'required|string|max:255',

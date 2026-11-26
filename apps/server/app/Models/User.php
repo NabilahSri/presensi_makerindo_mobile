@@ -4,7 +4,6 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Guarded;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -21,7 +20,7 @@ use Illuminate\Support\Str;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, HasUuids;
+    use HasFactory, HasUuids, Notifiable;
 
     public function roles(): BelongsToMany
     {
@@ -65,7 +64,7 @@ class User extends Authenticatable
 
         return (object) [
             'accessToken' => $token,
-            'plainTextToken' => $token->id . '|' . $plainTextToken,
+            'plainTextToken' => $token->id.'|'.$plainTextToken,
         ];
     }
 
@@ -91,15 +90,16 @@ class User extends Authenticatable
 
     public function isAttendanceRequired(): bool
     {
-        return !$this->roles->contains('is_attendance_required', false);
+        return ! $this->roles->contains('is_attendance_required', false);
     }
+
     public function getProfilePhotoUrlAttribute(): ?string
     {
         if (empty($this->profile_photo_path)) {
             return null;
         }
 
-        return '/storage/' . ltrim($this->profile_photo_path, '/');
+        return '/storage/'.ltrim($this->profile_photo_path, '/');
     }
 
     /**

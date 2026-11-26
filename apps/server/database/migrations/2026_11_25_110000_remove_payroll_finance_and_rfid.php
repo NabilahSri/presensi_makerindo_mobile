@@ -24,7 +24,7 @@ return new class extends Migration
                     Schema::table('users', function (Blueprint $table) {
                         $table->dropUnique(['rfid_uid']);
                     });
-                } catch (\Throwable) {
+                } catch (Throwable) {
                     // Index sudah tidak ada atau ditangani otomatis saat dropColumn
                 }
             }
@@ -37,7 +37,7 @@ return new class extends Migration
                 'bank_account_holder',
             ], fn (string $col) => Schema::hasColumn('users', $col)));
 
-            if (!empty($userDropCols)) {
+            if (! empty($userDropCols)) {
                 Schema::table('users', function (Blueprint $table) use ($userDropCols) {
                     $table->dropColumn($userDropCols);
                 });
@@ -111,31 +111,31 @@ return new class extends Migration
     {
         if (Schema::hasTable('users')) {
             Schema::table('users', function (Blueprint $table) {
-                if (!Schema::hasColumn('users', 'rfid_uid')) {
+                if (! Schema::hasColumn('users', 'rfid_uid')) {
                     $table->string('rfid_uid')->unique()->nullable()->after('password');
                 }
-                if (!Schema::hasColumn('users', 'basic_salary')) {
+                if (! Schema::hasColumn('users', 'basic_salary')) {
                     $table->decimal('basic_salary', 12, 2)->default(0)->after('employment_type');
                 }
-                if (!Schema::hasColumn('users', 'bank_name')) {
+                if (! Schema::hasColumn('users', 'bank_name')) {
                     $table->string('bank_name')->nullable()->after('can_approve_leaves');
                 }
-                if (!Schema::hasColumn('users', 'bank_account_number')) {
+                if (! Schema::hasColumn('users', 'bank_account_number')) {
                     $table->string('bank_account_number')->nullable()->after('bank_name');
                 }
-                if (!Schema::hasColumn('users', 'bank_account_holder')) {
+                if (! Schema::hasColumn('users', 'bank_account_holder')) {
                     $table->string('bank_account_holder')->nullable()->after('bank_account_number');
                 }
             });
         }
 
-        if (Schema::hasTable('sanction_rules') && !Schema::hasColumn('sanction_rules', 'default_deduction_amount')) {
+        if (Schema::hasTable('sanction_rules') && ! Schema::hasColumn('sanction_rules', 'default_deduction_amount')) {
             Schema::table('sanction_rules', function (Blueprint $table) {
                 $table->decimal('default_deduction_amount', 12, 2)->default(0)->after('default_level');
             });
         }
 
-        if (Schema::hasTable('employee_sanctions') && !Schema::hasColumn('employee_sanctions', 'deduction_amount')) {
+        if (Schema::hasTable('employee_sanctions') && ! Schema::hasColumn('employee_sanctions', 'deduction_amount')) {
             Schema::table('employee_sanctions', function (Blueprint $table) {
                 $table->decimal('deduction_amount', 12, 2)->default(0)->after('occurrence_count');
             });

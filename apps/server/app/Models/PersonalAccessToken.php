@@ -33,7 +33,7 @@ class PersonalAccessToken extends Model
 
     public static function findToken(string $token): ?self
     {
-        if (!str_contains($token, '|')) {
+        if (! str_contains($token, '|')) {
             return self::where('token', hash('sha256', $token))->first();
         }
 

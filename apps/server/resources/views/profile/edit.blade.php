@@ -200,7 +200,7 @@
             img.src = originalProfilePhotoUrl;
             img.style.display = 'block';
             initials.style.display = 'none';
-            filenameEl.textContent = 'Format JPG, PNG, atau WEBP dengan ukuran maksimal 3 MB. Foto profil akan tampil di portal web dan aplikasi mobile.';
+            filenameEl.textContent = 'Format JPG, PNG, WEBP, atau GIF dengan ukuran maksimal 5 MB. Foto profil akan tampil di portal web dan aplikasi mobile.';
         }
     }
 </script>

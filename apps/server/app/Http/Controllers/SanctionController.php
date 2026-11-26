@@ -9,7 +9,6 @@ use App\Models\Setting;
 use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
-use Database\Seeders\SanctionSeeder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -19,10 +18,6 @@ class SanctionController extends Controller
 {
     public function index(Request $request): View
     {
-        if (SanctionRule::count() === 0) {
-            (new SanctionSeeder())->run();
-        }
-
         $month = (int) $request->input('month', now()->month);
         $year = (int) $request->input('year', now()->year);
         $userId = $request->input('user_id');
@@ -233,7 +228,7 @@ class SanctionController extends Controller
             'reason' => 'required|string|max:1000',
         ]);
 
-        $rule = !empty($validated['sanction_rule_id'])
+        $rule = ! empty($validated['sanction_rule_id'])
             ? SanctionRule::find($validated['sanction_rule_id'])
             : null;
 
@@ -282,17 +277,20 @@ class SanctionController extends Controller
      */
     public function storeRule(Request $request): RedirectResponse
     {
+        $request->merge([
+            'code' => strtoupper(trim((string) $request->input('code'))),
+        ]);
+
         $validated = $request->validate([
             'code' => 'required|string|max:50|unique:sanction_rules,code',
             'name' => 'required|string|max:255',
             'category' => 'required|in:DISIPLIN_WAKTU,KEHADIRAN,KINERJA_TUGAS,ETIKA_SOP',
             'trigger_type' => 'required|in:AUTO_LATE,AUTO_ALPHA,MANUAL',
-            'threshold_count' => 'nullable|integer|min:1|max:31',
+            'threshold_count' => 'nullable|required_if:trigger_type,AUTO_LATE,AUTO_ALPHA|integer|min:1|max:31',
             'default_level' => 'required|in:TEGURAN_LISAN,SP1,SP2,SP3',
             'description' => 'nullable|string|max:500',
         ]);
 
-        $validated['code'] = strtoupper(trim($validated['code']));
         $validated['is_active'] = $request->boolean('is_active', true);
         if ($validated['trigger_type'] === 'MANUAL') {
             $validated['threshold_count'] = null;
@@ -312,7 +310,7 @@ class SanctionController extends Controller
             'name' => 'required|string|max:255',
             'category' => 'required|in:DISIPLIN_WAKTU,KEHADIRAN,KINERJA_TUGAS,ETIKA_SOP',
             'trigger_type' => 'required|in:AUTO_LATE,AUTO_ALPHA,MANUAL',
-            'threshold_count' => 'nullable|integer|min:1|max:31',
+            'threshold_count' => 'nullable|required_if:trigger_type,AUTO_LATE,AUTO_ALPHA|integer|min:1|max:31',
             'default_level' => 'required|in:TEGURAN_LISAN,SP1,SP2,SP3',
             'description' => 'nullable|string|max:500',
             'is_active' => 'nullable|boolean',

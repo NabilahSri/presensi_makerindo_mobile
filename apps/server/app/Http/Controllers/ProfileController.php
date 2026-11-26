@@ -13,6 +13,7 @@ class ProfileController extends Controller
     public function edit(): View
     {
         $user = auth()->user()->load('roles');
+
         return view('profile.edit', compact('user'));
     }
 
@@ -33,19 +34,19 @@ class ProfileController extends Controller
 
         unset($validated['profile_photo'], $validated['remove_profile_photo']);
 
-        if (!empty($validated['password'])) {
+        if (! empty($validated['password'])) {
             $validated['password'] = Hash::make($validated['password']);
         } else {
             unset($validated['password']);
         }
 
         if ($request->hasFile('profile_photo')) {
-            if (!empty($user->profile_photo_path) && Storage::disk('public')->exists($user->profile_photo_path)) {
+            if (! empty($user->profile_photo_path) && Storage::disk('public')->exists($user->profile_photo_path)) {
                 Storage::disk('public')->delete($user->profile_photo_path);
             }
             $validated['profile_photo_path'] = $request->file('profile_photo')->store('profile-photos', 'public');
         } elseif ($request->boolean('remove_profile_photo')) {
-            if (!empty($user->profile_photo_path) && Storage::disk('public')->exists($user->profile_photo_path)) {
+            if (! empty($user->profile_photo_path) && Storage::disk('public')->exists($user->profile_photo_path)) {
                 Storage::disk('public')->delete($user->profile_photo_path);
             }
             $validated['profile_photo_path'] = null;

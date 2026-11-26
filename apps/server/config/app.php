@@ -19,7 +19,7 @@ return [
         $path = base_path('version.json');
         if (is_file($path)) {
             $decoded = json_decode((string) file_get_contents($path), true);
-            if (is_array($decoded) && !empty($decoded['version'])) {
+            if (is_array($decoded) && ! empty($decoded['version'])) {
                 return [
                     'number' => (string) $decoded['version'],
                     'build' => (int) ($decoded['build'] ?? 1),

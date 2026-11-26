@@ -16,6 +16,7 @@ class Setting extends Model
     public static function getValue(string $key, $default = null)
     {
         $setting = self::where('key', $key)->first();
+
         return $setting ? $setting->value : $default;
     }
 
@@ -39,14 +40,14 @@ class Setting extends Model
             $rows = [];
         }
 
-        $logoPath = !empty($rows['app_logo_path']) ? $rows['app_logo_path'] : null;
+        $logoPath = ! empty($rows['app_logo_path']) ? $rows['app_logo_path'] : null;
 
         return self::$brandCache = [
-            'name' => !empty($rows['app_name']) ? $rows['app_name'] : 'Presensi Makerindo',
-            'slogan' => !empty($rows['app_slogan']) ? $rows['app_slogan'] : 'Sistem Presensi GPS & Foto Makerindo',
+            'name' => ! empty($rows['app_name']) ? $rows['app_name'] : 'Presensi Makerindo',
+            'slogan' => ! empty($rows['app_slogan']) ? $rows['app_slogan'] : 'Sistem Presensi GPS & Foto Makerindo',
             'logo_path' => $logoPath,
             'logo_url' => $logoPath ? asset($logoPath) : null,
-            'office_name' => !empty($rows['office_name']) ? $rows['office_name'] : 'Kantor PT Makerindo Prima Solusi',
+            'office_name' => ! empty($rows['office_name']) ? $rows['office_name'] : 'Kantor PT Makerindo Prima Solusi',
         ];
     }
 

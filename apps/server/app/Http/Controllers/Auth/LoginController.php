@@ -35,12 +35,14 @@ class LoginController extends Controller
         } elseif ($user->hasRole('super_admin')) {
             return redirect()->route('admin.dashboard')->with('success', $message);
         }
+
         return redirect()->route('approval.index')->with('success', $message);
     }
 
     public function logout(): RedirectResponse
     {
         $this->authService->logoutWeb();
+
         return redirect()->route('login')->with('success', 'Anda telah berhasil logout.');
     }
 }

@@ -36,6 +36,7 @@ class UserController extends Controller
     public function create(): View
     {
         $roles = Role::all();
+
         return view('admin.users.create', compact('roles'));
     }
 
@@ -62,6 +63,7 @@ class UserController extends Controller
     {
         $roles = Role::all();
         $user->load('roles');
+
         return view('admin.users.edit', compact('user', 'roles'));
     }
 
@@ -71,7 +73,7 @@ class UserController extends Controller
         $roles = $validated['roles'] ?? [];
         unset($validated['roles'], $validated['profile_photo'], $validated['remove_profile_photo']);
 
-        if (!empty($validated['password'])) {
+        if (! empty($validated['password'])) {
             $validated['password'] = Hash::make($validated['password']);
         } else {
             unset($validated['password']);
@@ -80,12 +82,12 @@ class UserController extends Controller
         $validated['can_approve_leaves'] = $request->boolean('can_approve_leaves');
 
         if ($request->hasFile('profile_photo')) {
-            if (!empty($user->profile_photo_path) && Storage::disk('public')->exists($user->profile_photo_path)) {
+            if (! empty($user->profile_photo_path) && Storage::disk('public')->exists($user->profile_photo_path)) {
                 Storage::disk('public')->delete($user->profile_photo_path);
             }
             $validated['profile_photo_path'] = $request->file('profile_photo')->store('profile-photos', 'public');
         } elseif ($request->boolean('remove_profile_photo')) {
-            if (!empty($user->profile_photo_path) && Storage::disk('public')->exists($user->profile_photo_path)) {
+            if (! empty($user->profile_photo_path) && Storage::disk('public')->exists($user->profile_photo_path)) {
                 Storage::disk('public')->delete($user->profile_photo_path);
             }
             $validated['profile_photo_path'] = null;
@@ -103,11 +105,12 @@ class UserController extends Controller
             return back()->with('error', 'Tidak dapat menghapus akun sendiri.');
         }
 
-        if (!empty($user->profile_photo_path) && Storage::disk('public')->exists($user->profile_photo_path)) {
+        if (! empty($user->profile_photo_path) && Storage::disk('public')->exists($user->profile_photo_path)) {
             Storage::disk('public')->delete($user->profile_photo_path);
         }
 
         $user->delete();
+
         return redirect()->route('admin.users.index')->with('success', 'Karyawan berhasil dihapus.');
     }
 }

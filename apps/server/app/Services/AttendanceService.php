@@ -64,24 +64,46 @@ class AttendanceService
     {
         $clean = trim((string) $value);
         if (preg_match('/^([01]\d|2[0-3]):([0-5]\d)/', $clean, $matches)) {
-            return $matches[1] . ':' . $matches[2];
+            return $matches[1].':'.$matches[2];
         }
+
         return $fallback;
     }
 
     public function isLateAt(Carbon $timestamp): bool
     {
         $schedule = $this->getWorkScheduleSettings();
-        $standardIn = Carbon::parse($timestamp->toDateString() . ' ' . $schedule['work_start_time'] . ':00');
+        $standardIn = Carbon::parse($timestamp->toDateString().' '.$schedule['work_start_time'].':00');
         $lateCutoff = $standardIn->copy()->addMinutes($schedule['late_tolerance_minutes']);
 
         return $timestamp->greaterThan($lateCutoff);
     }
 
-    public function calculateOvertimeHours(Carbon $timestamp): int
+    public function calculateLateMinutes(?string $timeIn, ?string $baseDate = null): int
+    {
+        if (empty($timeIn)) {
+            return 0;
+        }
+
+        $dateStr = $baseDate ? Carbon::parse($baseDate)->toDateString() : now()->toDateString();
+        $normalizedIn = strlen(trim($timeIn)) === 5 ? trim($timeIn).':00' : trim($timeIn);
+        $checkIn = Carbon::parse($dateStr.' '.$normalizedIn);
+
+        if (! $this->isLateAt($checkIn)) {
+            return 0;
+        }
+
+        $schedule = $this->getWorkScheduleSettings();
+        $standardIn = Carbon::parse($dateStr.' '.$schedule['work_start_time'].':00');
+
+        return max(0, (int) $standardIn->diffInMinutes($checkIn));
+    }
+
+    public function calculateOvertimeHours(Carbon $timestamp, ?string $baseDate = null): int
     {
         $schedule = $this->getWorkScheduleSettings();
-        $standardOut = Carbon::parse($timestamp->toDateString() . ' ' . $schedule['work_end_time'] . ':00');
+        $dateStr = $baseDate ? Carbon::parse($baseDate)->toDateString() : $timestamp->toDateString();
+        $standardOut = Carbon::parse($dateStr.' '.$schedule['work_end_time'].':00');
         $overtimeThreshold = $standardOut->copy()->addMinutes($schedule['overtime_tolerance_minutes']);
 
         if ($timestamp->lessThan($overtimeThreshold)) {
@@ -97,13 +119,8 @@ class AttendanceService
      * - Karyawan WFA / Tugas Luar: via GPS & Foto (bebas radius).
      * - Karyawan On-Site: via GPS & Foto dengan validasi radius kantor.
      *
-     * @param User $user
-     * @param float $latitude
-     * @param float $longitude
-     * @param string $presenceType ('ON_SITE', 'WFA', 'TUGAS_LUAR', 'INTERN_MOBILE', 'AUTO')
-     * @param string|null $notes
-     * @param Carbon|null $timestamp
-     * @return array
+     * @param  string  $presenceType  ('ON_SITE', 'WFA', 'TUGAS_LUAR', 'INTERN_MOBILE', 'AUTO')
+     *
      * @throws ValidationException
      */
     public function recordLocationAttendance(
@@ -137,7 +154,7 @@ class AttendanceService
                 // Presensi harian magang via kamera & GPS tanpa pembatasan radius
                 $determinedStatus = 'HADIR_ON_SITE';
             } elseif ($presenceType === 'ON_SITE') {
-                if (!$isWithinRadius) {
+                if (! $isWithinRadius) {
                     throw ValidationException::withMessages([
                         'location' => "Presensi Kantor ditolak: Anda terdeteksi berada di luar area kantor ({$distance} meter dari kantor, batas radius {$office['radius']} meter). Silakan lakukan presensi saat tiba di kantor atau pilih WFA.",
                     ]);
@@ -153,7 +170,7 @@ class AttendanceService
                 $determinedStatus = 'WFA';
             } elseif ($presenceType === 'ON_SITE') {
                 // Karyawan hadir langsung di kantor (validasi radius GPS kantor)
-                if (!$isWithinRadius) {
+                if (! $isWithinRadius) {
                     throw ValidationException::withMessages([
                         'location' => "Presensi Kantor ditolak: Posisi Anda berada di luar radius kantor ({$distance} meter dari kantor, batas toleransi {$office['radius']} meter). Pastikan Anda berada di area kantor atau pilih opsi WFA jika bekerja dari luar kantor.",
                     ]);
@@ -174,7 +191,13 @@ class AttendanceService
             ->whereDate('date', $today)
             ->first();
 
-        if (!$attendance || !$attendance->time_in) {
+        if ($attendance && ! $attendance->time_in && in_array($attendance->status, ['CUTI', 'SAKIT', 'IZIN'], true)) {
+            throw ValidationException::withMessages([
+                'attendance' => "Pengguna tercatat sedang {$attendance->status} pada tanggal {$today} sehingga tidak dapat melakukan presensi masuk.",
+            ]);
+        }
+
+        if (! $attendance || ! $attendance->time_in) {
             // --- PROSES PRESENSI MASUK ---
             $isLate = $this->isLateAt($now);
 
@@ -221,7 +244,7 @@ class AttendanceService
                 'overtime_hours' => $overtimeHours,
             ]);
 
-            $message = "Presensi Pulang berhasil dicatat pada {$timeString} WIB." . ($overtimeHours > 0 ? " Lembur dihitung: {$overtimeHours} jam." : '');
+            $message = "Presensi Pulang berhasil dicatat pada {$timeString} WIB.".($overtimeHours > 0 ? " Lembur dihitung: {$overtimeHours} jam." : '');
 
             return [
                 'status' => 'success',

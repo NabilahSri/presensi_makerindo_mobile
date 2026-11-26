@@ -26,8 +26,8 @@ class DailyReportSeeder extends Seeder
                     'morning_planned_tasks' => "1. Mengembangkan fitur validasi geofence GPS pada endpoint mobile\n2. Melakukan unit testing unggah foto selfie presensi\n3. Daily standup koordinasi sprint tim",
                     'evening_submitted_at' => '16:45:00',
                     'evening_completed_tasks' => "1. Mengembangkan fitur validasi geofence GPS pada endpoint mobile (Selesai 100%)\n3. Daily standup koordinasi sprint tim (Selesai)",
-                    'evening_pending_tasks' => "2. Melakukan unit testing unggah foto selfie presensi (Tersisa 3 test case, dilanjutkan besok)",
-                    'evening_additional_tasks' => "1. Optimasi kompresi gambar selfie pada aplikasi mobile",
+                    'evening_pending_tasks' => '2. Melakukan unit testing unggah foto selfie presensi (Tersisa 3 test case, dilanjutkan besok)',
+                    'evening_additional_tasks' => '1. Optimasi kompresi gambar selfie pada aplikasi mobile',
                     'status' => 'COMPLETED',
                 ]
             );
@@ -40,7 +40,7 @@ class DailyReportSeeder extends Seeder
                     'evening_submitted_at' => '17:00:00',
                     'evening_completed_tasks' => "1. Setup migrasi tabel daily reports (Selesai)\n2. Penyempurnaan alur pengajuan cuti dan tugas luar (Selesai)",
                     'evening_pending_tasks' => null,
-                    'evening_additional_tasks' => "1. Koordinasi teknis skema relasi user dan presensi",
+                    'evening_additional_tasks' => '1. Koordinasi teknis skema relasi user dan presensi',
                     'status' => 'COMPLETED',
                 ]
             );
@@ -55,8 +55,8 @@ class DailyReportSeeder extends Seeder
                     'morning_planned_tasks' => "1. Pengujian akurasi koordinat GPS di area kantor Bandung\n2. Dokumentasi alur presensi masuk dan pulang via aplikasi mobile\n3. Verifikasi data profil karyawan baru",
                     'evening_submitted_at' => '16:55:00',
                     'evening_completed_tasks' => "1. Pengujian akurasi koordinat GPS di area kantor Bandung (Normal)\n2. Dokumentasi alur presensi masuk dan pulang via aplikasi mobile (Selesai)",
-                    'evening_pending_tasks' => "3. Verifikasi data profil karyawan baru (Menunggu konfirmasi email staf)",
-                    'evening_additional_tasks' => "1. Kalibrasi radius geofence kantor menjadi 100 meter",
+                    'evening_pending_tasks' => '3. Verifikasi data profil karyawan baru (Menunggu konfirmasi email staf)',
+                    'evening_additional_tasks' => '1. Kalibrasi radius geofence kantor menjadi 100 meter',
                     'status' => 'COMPLETED',
                 ]
             );
@@ -72,7 +72,7 @@ class DailyReportSeeder extends Seeder
                     'evening_submitted_at' => '17:05:00',
                     'evening_completed_tasks' => "1. Pengujian akses kamera depan pada perangkat Android & iOS (Selesai)\n2. Uji coba respons API presensi GPS dan unggah bukti foto (Rata-rata 180ms, stabil)",
                     'evening_pending_tasks' => null,
-                    'evening_additional_tasks' => "1. Dokumentasi panduan instalasi APK internal untuk tim",
+                    'evening_additional_tasks' => '1. Dokumentasi panduan instalasi APK internal untuk tim',
                     'status' => 'COMPLETED',
                 ]
             );
@@ -87,8 +87,8 @@ class DailyReportSeeder extends Seeder
                     'morning_planned_tasks' => "1. Review dan verifikasi permohonan cuti tahunan & WFA divisi\n2. Evaluasi rekapitulasi keterlambatan presensi mingguan\n3. Meeting 1-on-1 dengan personil magang",
                     'evening_submitted_at' => '16:50:00',
                     'evening_completed_tasks' => "1. Review dan verifikasi permohonan cuti tahunan & WFA divisi (Semua permohonan selesai diproses)\n3. Meeting 1-on-1 dengan personil magang (Selesai)",
-                    'evening_pending_tasks' => "2. Evaluasi keterlambatan mingguan (Menunggu rekapitulasi audit HRD)",
-                    'evening_additional_tasks' => "1. Sosialisasi SOP presensi GPS & Foto kepada divisi operasional",
+                    'evening_pending_tasks' => '2. Evaluasi keterlambatan mingguan (Menunggu rekapitulasi audit HRD)',
+                    'evening_additional_tasks' => '1. Sosialisasi SOP presensi GPS & Foto kepada divisi operasional',
                     'status' => 'COMPLETED',
                 ]
             );

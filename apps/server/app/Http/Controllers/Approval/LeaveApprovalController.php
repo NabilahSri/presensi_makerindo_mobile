@@ -11,15 +11,27 @@ use Illuminate\View\View;
 
 class LeaveApprovalController extends Controller
 {
+    private function authorizeApprover(): void
+    {
+        $user = auth()->user();
+
+        if (! $user || (! $user->can_approve_leaves && ! $user->hasRole('super_admin'))) {
+            abort(403, 'Anda tidak memiliki wewenang untuk mengakses persetujuan perizinan.');
+        }
+    }
+
     public function index(Request $request): View
     {
+        $this->authorizeApprover();
+
         $search = $request->input('search');
         $userId = $request->input('user_id');
         $type = $request->input('type');
         $status = $request->input('status');
 
         $pendingQuery = LeaveRequest::with('user')
-            ->where('status', 'PENDING');
+            ->where('status', 'PENDING')
+            ->where('user_id', '!=', auth()->id());
 
         $historyQuery = LeaveRequest::with(['user', 'approver'])
             ->whereIn('status', ['APPROVED', 'REJECTED']);
@@ -70,6 +82,16 @@ class LeaveApprovalController extends Controller
 
     public function approve(LeaveRequest $leaveRequest): RedirectResponse
     {
+        $this->authorizeApprover();
+
+        if ($leaveRequest->user_id === auth()->id()) {
+            abort(403, 'Anda tidak dapat menyetujui pengajuan perizinan milik Anda sendiri.');
+        }
+
+        if ($leaveRequest->status !== 'PENDING') {
+            return back()->with('error', "Pengajuan {$leaveRequest->type} sudah diproses sebelumnya.");
+        }
+
         $leaveRequest->approve(auth()->user());
 
         return back()->with('success', "Pengajuan {$leaveRequest->type} berhasil disetujui dan data presensi otomatis di-generate.");
@@ -77,6 +99,16 @@ class LeaveApprovalController extends Controller
 
     public function reject(Request $request, LeaveRequest $leaveRequest): RedirectResponse
     {
+        $this->authorizeApprover();
+
+        if ($leaveRequest->user_id === auth()->id()) {
+            abort(403, 'Anda tidak dapat menolak pengajuan perizinan milik Anda sendiri.');
+        }
+
+        if ($leaveRequest->status !== 'PENDING') {
+            return back()->with('error', "Pengajuan {$leaveRequest->type} sudah diproses sebelumnya.");
+        }
+
         $request->validate([
             'rejection_reason' => 'required|string|max:500',
         ]);

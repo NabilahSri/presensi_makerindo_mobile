@@ -9,19 +9,20 @@ class AuthService
 {
     public function authenticateWeb(array $credential): bool
     {
-        if (!Auth::attempt($credential)) {
+        if (! Auth::attempt($credential)) {
             throw ValidationException::withMessages([
-                'email' => 'Email atau password yang Anda masukkan salah.'
+                'email' => 'Email atau password yang Anda masukkan salah.',
             ]);
         }
         $user = Auth::user();
-        if (!$user || !$user->canAccessWebPortal()) {
+        if (! $user || ! $user->canAccessWebPortal()) {
             Auth::logout();
             throw ValidationException::withMessages([
-                'email' => 'Akses ditolak. Akun Karyawan Regular dan Magang hanya dapat masuk melalui Aplikasi Mobile Presensi Makerindo.'
+                'email' => 'Akses ditolak. Akun Karyawan Regular dan Magang hanya dapat masuk melalui Aplikasi Mobile Presensi Makerindo.',
             ]);
         }
         session()->regenerate();
+
         return true;
     }
 

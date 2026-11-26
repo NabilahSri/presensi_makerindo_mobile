@@ -18,7 +18,7 @@ class ApiTokenAuthMiddleware
         if ($bearerToken) {
             $accessToken = PersonalAccessToken::findToken($bearerToken);
 
-            if (!$accessToken || !($accessToken->tokenable instanceof User)) {
+            if (! $accessToken || ! ($accessToken->tokenable instanceof User)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Token autentikasi tidak valid atau telah kedaluwarsa.',
@@ -27,6 +27,7 @@ class ApiTokenAuthMiddleware
 
             if ($accessToken->expires_at && $accessToken->expires_at->isPast()) {
                 $accessToken->delete();
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Token autentikasi telah kedaluwarsa.',
@@ -36,7 +37,7 @@ class ApiTokenAuthMiddleware
             $accessToken->forceFill(['last_used_at' => now()])->save();
 
             $user = $accessToken->tokenable;
-            if (!$user->canAccessMobileApp()) {
+            if (! $user->canAccessMobileApp()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Akses ditolak. Aplikasi Presensi Makerindo Mobile hanya untuk Karyawan Regular dan Magang.',

@@ -3,9 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\Attendance;
+use App\Models\DailyReport;
 use App\Models\Setting;
 use App\Models\User;
-use Carbon\Carbon;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
 
@@ -190,18 +190,28 @@ class LocationAttendanceTest extends TestCase
     public function test_api_location_check_in_and_check_out_flow(): void
     {
         $intern = User::where('employment_type', 'INTERN')->first();
+        $token = $intern->createToken('intern-location-api')->plainTextToken;
 
-        // Bersihkan data presensi hari ini jika sudah ada dari seeder
+        // Bersihkan data presensi & daily report hari ini jika sudah ada dari seeder
         Attendance::where('user_id', $intern->id)->whereDate('date', now()->toDateString())->delete();
+        DailyReport::where('user_id', $intern->id)->whereDate('date', now()->toDateString())->delete();
 
-        // 1. Check-in via API
-        $responseIn = $this->postJson(route('api.attendances.location-check-in'), [
+        // 0. Request tanpa Bearer token wajib ditolak (401)
+        $this->postJson(route('api.attendances.location-check-in'), [
             'email' => $intern->email,
             'latitude' => -6.20880000,
             'longitude' => 106.84560000,
             'presence_type' => 'ON_SITE',
-            'notes' => 'Check-in API Magang',
-        ]);
+        ])->assertStatus(401);
+
+        // 1. Check-in via API terotentikasi
+        $responseIn = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson(route('api.attendances.location-check-in'), [
+                'latitude' => -6.20880000,
+                'longitude' => 106.84560000,
+                'presence_type' => 'ON_SITE',
+                'notes' => 'Check-in API Magang',
+            ]);
 
         $responseIn->assertOk();
         $responseIn->assertJson([
@@ -210,14 +220,31 @@ class LocationAttendanceTest extends TestCase
             'is_within_radius' => true,
         ]);
 
-        // 2. Check-out via API
-        $responseOut = $this->postJson(route('api.attendances.location-check-in'), [
-            'email' => $intern->email,
-            'latitude' => -6.20880000,
-            'longitude' => 106.84560000,
-            'presence_type' => 'ON_SITE',
-            'notes' => 'Check-out API Magang',
+        // 2. Check-out sebelum Daily Report COMPLETED wajib ditolak (422)
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson(route('api.attendances.location-check-in'), [
+                'latitude' => -6.20880000,
+                'longitude' => 106.84560000,
+                'presence_type' => 'ON_SITE',
+            ])
+            ->assertStatus(422);
+
+        // 3. Selesaikan Daily Report sore lalu check-out via API -> berhasil (200)
+        DailyReport::create([
+            'user_id' => $intern->id,
+            'date' => now()->toDateString(),
+            'morning_planned_tasks' => '1. Task magang',
+            'evening_completed_tasks' => '1. Task magang selesai',
+            'status' => 'COMPLETED',
         ]);
+
+        $responseOut = $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson(route('api.attendances.location-check-in'), [
+                'latitude' => -6.20880000,
+                'longitude' => 106.84560000,
+                'presence_type' => 'ON_SITE',
+                'notes' => 'Check-out API Magang',
+            ]);
 
         $responseOut->assertOk();
         $responseOut->assertJson([

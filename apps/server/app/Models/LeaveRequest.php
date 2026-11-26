@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\CarbonPeriod;
 use Illuminate\Database\Eloquent\Attributes\Guarded;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
@@ -17,7 +18,7 @@ class LeaveRequest extends Model
     public function getAttachmentUrlAttribute(): ?string
     {
         return $this->attachment_path
-            ? url('storage/' . ltrim($this->attachment_path, '/'))
+            ? url('storage/'.ltrim($this->attachment_path, '/'))
             : null;
     }
 
@@ -33,7 +34,7 @@ class LeaveRequest extends Model
 
     public function syncAttendances(): void
     {
-        $period = \Carbon\CarbonPeriod::create($this->start_date, $this->end_date);
+        $period = CarbonPeriod::create($this->start_date, $this->end_date);
 
         foreach ($period as $date) {
             Attendance::updateOrCreate(

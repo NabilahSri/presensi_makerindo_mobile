@@ -6,6 +6,7 @@ use App\Models\Attendance;
 use App\Models\DailyReport;
 use App\Models\LeaveRequest;
 use App\Models\User;
+use App\Services\AttendanceService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,12 +20,26 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportController extends Controller
 {
+    private function sanitizeSpreadsheetCell(mixed $value): mixed
+    {
+        if (! is_string($value)) {
+            return $value;
+        }
+
+        $trimmedLeft = ltrim($value);
+        if ($trimmedLeft !== '' && in_array($trimmedLeft[0], ['=', '+', '-', '@', "\t", "\r"], true)) {
+            return "'".$value;
+        }
+
+        return $value;
+    }
+
     /**
      * Helper privat untuk menghasilkan file Microsoft Excel (.xlsx) murni dengan styling profesional
      */
     private function streamXlsxResponse(string $title, array $headers, array $dataRows, string $filename): StreamedResponse
     {
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle(substr($title, 0, 31));
 
@@ -35,7 +50,7 @@ class ReportController extends Controller
         $totalRows = count($dataRows) + 1;
 
         // Styling Baris Header (Navy/Slate 900 dengan teks putih tebal)
-        $sheet->getStyle('A1:' . $highestColumn . '1')->applyFromArray([
+        $sheet->getStyle('A1:'.$highestColumn.'1')->applyFromArray([
             'font' => [
                 'bold' => true,
                 'color' => ['rgb' => 'FFFFFF'],
@@ -53,12 +68,16 @@ class ReportController extends Controller
         ]);
         $sheet->getRowDimension(1)->setRowHeight(28);
 
-        // Tulis baris Data
-        if (!empty($dataRows)) {
-            $sheet->fromArray($dataRows, null, 'A2');
+        // Tulis baris Data (netralisasi formula injection pada sel string)
+        if (! empty($dataRows)) {
+            $sanitizedRows = array_map(
+                fn (array $row) => array_map(fn ($cell) => $this->sanitizeSpreadsheetCell($cell), $row),
+                $dataRows
+            );
+            $sheet->fromArray($sanitizedRows, null, 'A2');
 
             // Border halus untuk semua data
-            $sheet->getStyle('A2:' . $highestColumn . $totalRows)->applyFromArray([
+            $sheet->getStyle('A2:'.$highestColumn.$totalRows)->applyFromArray([
                 'font' => [
                     'size' => 10,
                     'name' => 'Calibri',
@@ -87,7 +106,7 @@ class ReportController extends Controller
         });
 
         $response->headers->set('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        $response->headers->set('Content-Disposition', 'attachment; filename="' . $filename . '"');
+        $response->headers->set('Content-Disposition', 'attachment; filename="'.$filename.'"');
         $response->headers->set('Cache-Control', 'max-age=0');
         $response->headers->set('Pragma', 'public');
 
@@ -212,12 +231,16 @@ class ReportController extends Controller
             'Koordinat GPS',
         ];
 
+        $attendanceService = app(AttendanceService::class);
         $dataRows = [];
         $no = 1;
         foreach ($attendances as $att) {
             $coord = ($att->latitude && $att->longitude)
                 ? "{$att->latitude}, {$att->longitude}"
                 : '-';
+            $lateMinutes = $att->is_late
+                ? $attendanceService->calculateLateMinutes($att->time_in, $att->date?->toDateString())
+                : 0;
 
             $dataRows[] = [
                 $no++,
@@ -230,7 +253,7 @@ class ReportController extends Controller
                 $att->status,
                 $att->method === 'FACIAL_LOCATION' ? 'GPS & Foto' : ($att->method === 'FORM' ? 'Formulir Izin' : ($att->method ?? '-')),
                 $att->is_late ? 'Terlambat' : 'Tepat Waktu',
-                $att->late_minutes ?? 0,
+                $lateMinutes,
                 $att->overtime_hours ?? 0,
                 $coord,
             ];
@@ -413,7 +436,7 @@ class ReportController extends Controller
 
         foreach ($allUsers as $u) {
             $rep = $u->dailyReports->first();
-            if (!$rep) {
+            if (! $rep) {
                 $notSubmittedCount++;
             } elseif ($rep->status === 'COMPLETED') {
                 $morningCount++;
@@ -596,19 +619,19 @@ class ReportController extends Controller
             foreach ($additionalTasksChecklist as $aIdx => $aTaskText) {
                 $aTaskClean = trim($aTaskText);
                 if (in_array((string) $aIdx, $completedAdditionalIndices, true) || in_array((int) $aIdx, $completedAdditionalIndices, true)) {
-                    $completedList[] = "[Tambahan] " . $aTaskClean;
+                    $completedList[] = '[Tambahan] '.$aTaskClean;
                 } else {
-                    $pendingList[] = "[Tambahan] " . $aTaskClean;
+                    $pendingList[] = '[Tambahan] '.$aTaskClean;
                 }
             }
 
-            $completedTasks = !empty($completedList) ? implode("\n", $completedList) : 'Tidak ada task yang diselesaikan';
-            $pendingTasks = !empty($pendingList) ? implode("\n", $pendingList) : '-';
+            $completedTasks = ! empty($completedList) ? implode("\n", $completedList) : 'Tidak ada task yang diselesaikan';
+            $pendingTasks = ! empty($pendingList) ? implode("\n", $pendingList) : '-';
             $isEveningFilled = true;
         } else {
             $completedTasks = $validated['evening_completed_tasks'] ?? null;
             $pendingTasks = $validated['evening_pending_tasks'] ?? null;
-            $isEveningFilled = !empty(trim($completedTasks ?? ''));
+            $isEveningFilled = ! empty(trim($completedTasks ?? ''));
         }
 
         DailyReport::updateOrCreate(
@@ -622,7 +645,7 @@ class ReportController extends Controller
                 'evening_submitted_at' => $isEveningFilled ? now()->format('H:i:s') : null,
                 'evening_completed_tasks' => $completedTasks,
                 'evening_pending_tasks' => $pendingTasks,
-                'evening_additional_tasks' => !empty($additionalTasks) ? $additionalTasks : null,
+                'evening_additional_tasks' => ! empty($additionalTasks) ? $additionalTasks : null,
                 'status' => $isEveningFilled ? 'COMPLETED' : 'MORNING_ONLY',
             ]
         );
@@ -658,14 +681,14 @@ class ReportController extends Controller
             foreach ($additionalTasksChecklist as $aIdx => $aTaskText) {
                 $aTaskClean = trim($aTaskText);
                 if (in_array((string) $aIdx, $completedAdditionalIndices, true) || in_array((int) $aIdx, $completedAdditionalIndices, true)) {
-                    $completedList[] = "[Tambahan] " . $aTaskClean;
+                    $completedList[] = '[Tambahan] '.$aTaskClean;
                 } else {
-                    $pendingList[] = "[Tambahan] " . $aTaskClean;
+                    $pendingList[] = '[Tambahan] '.$aTaskClean;
                 }
             }
 
-            $completedTasks = !empty($completedList) ? implode("\n", $completedList) : 'Tidak ada task yang diselesaikan';
-            $pendingTasks = !empty($pendingList) ? implode("\n", $pendingList) : '-';
+            $completedTasks = ! empty($completedList) ? implode("\n", $completedList) : 'Tidak ada task yang diselesaikan';
+            $pendingTasks = ! empty($pendingList) ? implode("\n", $pendingList) : '-';
         } else {
             $validated = $request->validate([
                 'evening_completed_tasks' => 'required|string',
@@ -682,7 +705,7 @@ class ReportController extends Controller
             'evening_submitted_at' => now()->format('H:i:s'),
             'evening_completed_tasks' => $completedTasks,
             'evening_pending_tasks' => $pendingTasks,
-            'evening_additional_tasks' => !empty($additionalTasks) ? $additionalTasks : null,
+            'evening_additional_tasks' => ! empty($additionalTasks) ? $additionalTasks : null,
             'status' => 'COMPLETED',
         ]);
 

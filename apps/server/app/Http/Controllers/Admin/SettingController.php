@@ -22,11 +22,11 @@ class SettingController extends Controller
             ->withQueryString();
 
         return view('admin.settings.index', [
-            'appName' => !empty($settings['app_name']) ? $settings['app_name'] : 'Presensi Makerindo',
-            'appSlogan' => !empty($settings['app_slogan']) ? $settings['app_slogan'] : 'Sistem Presensi GPS & Foto Makerindo',
-            'appLogoPath' => !empty($settings['app_logo_path']) ? $settings['app_logo_path'] : null,
-            'workStartTime' => !empty($settings['work_start_time']) ? $settings['work_start_time'] : '08:00',
-            'workEndTime' => !empty($settings['work_end_time']) ? $settings['work_end_time'] : '17:00',
+            'appName' => ! empty($settings['app_name']) ? $settings['app_name'] : 'Presensi Makerindo',
+            'appSlogan' => ! empty($settings['app_slogan']) ? $settings['app_slogan'] : 'Sistem Presensi GPS & Foto Makerindo',
+            'appLogoPath' => ! empty($settings['app_logo_path']) ? $settings['app_logo_path'] : null,
+            'workStartTime' => ! empty($settings['work_start_time']) ? $settings['work_start_time'] : '08:00',
+            'workEndTime' => ! empty($settings['work_end_time']) ? $settings['work_end_time'] : '17:00',
             'lateTolerance' => $settings['late_tolerance_minutes'] ?? '15',
             'overtimeTolerance' => $settings['overtime_tolerance_minutes'] ?? '30',
             'officeName' => $settings['office_name'] ?? 'Kantor PT Makerindo Prima Solusi',
@@ -87,30 +87,105 @@ class SettingController extends Controller
         $excludedKeys = ['app_logo', 'reset_app_logo'];
 
         foreach ($validated as $key => $value) {
-            if (!in_array($key, $excludedKeys, true) && $value !== null) {
+            if (! in_array($key, $excludedKeys, true) && $value !== null) {
                 Setting::updateOrCreate(['key' => $key], ['value' => (string) $value]);
             }
         }
 
-        if (!empty($validated['reset_app_logo'])) {
+        if (! empty($validated['reset_app_logo'])) {
+            $this->deleteOldBrandLogo();
             Setting::updateOrCreate(['key' => 'app_logo_path'], ['value' => '']);
         }
 
         if ($request->hasFile('app_logo')) {
             $file = $request->file('app_logo');
             $destinationDir = public_path('uploads/branding');
-            if (!is_dir($destinationDir)) {
+            if (! is_dir($destinationDir)) {
                 mkdir($destinationDir, 0755, true);
             }
             $ext = strtolower($file->getClientOriginalExtension() ?: 'png');
-            $filename = 'logo_' . time() . '_' . substr(md5(uniqid('', true)), 0, 6) . '.' . $ext;
-            $file->move($destinationDir, $filename);
+            $filename = 'logo_'.time().'_'.substr(md5(uniqid('', true)), 0, 6).'.'.$ext;
 
-            Setting::updateOrCreate(['key' => 'app_logo_path'], ['value' => 'uploads/branding/' . $filename]);
+            if ($ext === 'svg') {
+                $rawSvg = file_get_contents($file->getRealPath());
+                $sanitizedSvg = $this->sanitizeSvg($rawSvg ?: '');
+                if ($sanitizedSvg === null) {
+                    return back()->withErrors([
+                        'app_logo' => 'Berkas SVG tidak valid atau mengandung elemen berbahaya.',
+                    ]);
+                }
+                $this->deleteOldBrandLogo();
+                file_put_contents($destinationDir.DIRECTORY_SEPARATOR.$filename, $sanitizedSvg);
+            } else {
+                $this->deleteOldBrandLogo();
+                $file->move($destinationDir, $filename);
+            }
+
+            Setting::updateOrCreate(['key' => 'app_logo_path'], ['value' => 'uploads/branding/'.$filename]);
         }
 
         Setting::clearBrandCache();
 
         return back()->with('success', 'Pengaturan identitas aplikasi, jam kerja, parameter toleransi, dan titik lokasi GPS kantor berhasil disimpan.');
+    }
+
+    private function deleteOldBrandLogo(): void
+    {
+        $oldPath = Setting::getValue('app_logo_path', '');
+        if (! empty($oldPath) && str_starts_with($oldPath, 'uploads/branding/')) {
+            $fullPath = public_path($oldPath);
+            if (is_file($fullPath)) {
+                @unlink($fullPath);
+            }
+        }
+    }
+
+    private function sanitizeSvg(string $content): ?string
+    {
+        $trimmed = trim($content);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        $dom = new \DOMDocument;
+        $loaded = @$dom->loadXML($trimmed, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
+        if (! $loaded || ! $dom->documentElement || strtolower($dom->documentElement->localName ?? '') !== 'svg') {
+            return null;
+        }
+
+        $blockedTags = ['script', 'foreignobject', 'iframe', 'object', 'embed', 'audio', 'video'];
+        foreach ($blockedTags as $tag) {
+            $nodes = [];
+            foreach ($dom->getElementsByTagName('*') as $el) {
+                if (strtolower($el->localName ?? '') === $tag) {
+                    $nodes[] = $el;
+                }
+            }
+            foreach ($nodes as $node) {
+                $node->parentNode?->removeChild($node);
+            }
+        }
+
+        foreach ($dom->getElementsByTagName('*') as $el) {
+            $toRemove = [];
+            foreach ($el->attributes as $attr) {
+                $name = strtolower($attr->nodeName);
+                $val = strtolower(trim($attr->nodeValue));
+                if (str_starts_with($name, 'on')) {
+                    $toRemove[] = $attr->nodeName;
+                } elseif (in_array($name, ['href', 'xlink:href', 'src'], true)) {
+                    if (str_starts_with($val, 'javascript:') || str_starts_with($val, 'vbscript:') || (str_starts_with($val, 'data:') && ! str_starts_with($val, 'data:image/'))) {
+                        $toRemove[] = $attr->nodeName;
+                    }
+                }
+            }
+            foreach ($toRemove as $attrName) {
+                $el->removeAttribute($attrName);
+            }
+        }
+
+        $output = $dom->saveXML($dom->documentElement);
+
+        return is_string($output) && $output !== '' ? $output : null;
     }
 }

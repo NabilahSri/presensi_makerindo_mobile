@@ -2,8 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\Attendance;
+use App\Models\DailyReport;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use Tests\TestCase;
 
 class ReportTest extends TestCase
@@ -122,7 +125,7 @@ class ReportTest extends TestCase
 
         $storeResponse->assertRedirect();
 
-        $report = \App\Models\DailyReport::where('user_id', $user->id)->whereDate('date', $testDate)->first();
+        $report = DailyReport::where('user_id', $user->id)->whereDate('date', $testDate)->first();
         $this->assertNotNull($report);
         $this->assertEquals('MORNING_ONLY', $report->status);
         $this->assertStringContainsString('Task testing pagi A', $report->morning_planned_tasks);
@@ -155,7 +158,7 @@ class ReportTest extends TestCase
             'morning_planned_tasks' => "Fitur presensi GPS dan selfie\nTesting kamera mobile\nDeploy staging server",
         ]);
 
-        $report = \App\Models\DailyReport::where('user_id', $user->id)->whereDate('date', $testDate)->first();
+        $report = DailyReport::where('user_id', $user->id)->whereDate('date', $testDate)->first();
         $this->assertNotNull($report);
         $this->assertEquals('MORNING_ONLY', $report->status);
 
@@ -213,12 +216,51 @@ class ReportTest extends TestCase
 
         $storeResponse->assertRedirect();
 
-        $report = \App\Models\DailyReport::where('user_id', $user->id)->whereDate('date', $testDate)->first();
+        $report = DailyReport::where('user_id', $user->id)->whereDate('date', $testDate)->first();
         $this->assertNotNull($report);
         $this->assertEquals('COMPLETED', $report->status);
         $this->assertStringContainsString('Task A', $report->evening_completed_tasks);
         $this->assertStringContainsString('Task B', $report->evening_pending_tasks);
         $this->assertStringContainsString('[Tambahan] Task Tambahan C', $report->evening_completed_tasks);
         $this->assertStringContainsString('Task Tambahan C', $report->evening_additional_tasks);
+    }
+
+    public function test_export_attendances_calculates_late_minutes_and_neutralizes_excel_formulas(): void
+    {
+        $admin = User::where('email', 'admin@test.com')->first();
+        $employee = User::where('email', 'karyawan@test.com')->first();
+        $originalName = $employee->name;
+        $employee->update(['name' => '=CMD("calc")']);
+
+        Attendance::updateOrCreate(
+            ['user_id' => $employee->id, 'date' => '2026-10-28'],
+            [
+                'time_in' => '08:45:00',
+                'time_out' => '17:00:00',
+                'status' => 'HADIR_ON_SITE',
+                'method' => 'FACIAL_LOCATION',
+                'is_late' => true,
+                'overtime_hours' => 0,
+            ]
+        );
+
+        $response = $this->actingAs($admin)->get(route('reports.attendances.export', [
+            'start_date' => '2026-10-28',
+            'end_date' => '2026-10-28',
+            'user_id' => $employee->id,
+        ]));
+
+        $response->assertOk();
+        $binary = $response->streamedContent();
+        $tmpFile = tempnam(sys_get_temp_dir(), 'xlsx_qc_').'.xlsx';
+        file_put_contents($tmpFile, $binary);
+
+        $spreadsheet = IOFactory::load($tmpFile);
+        $sheet = $spreadsheet->getActiveSheet();
+        $this->assertEquals("'=CMD(\"calc\")", (string) $sheet->getCell('B2')->getValue());
+        $this->assertGreaterThan(0, (int) $sheet->getCell('K2')->getValue());
+
+        @unlink($tmpFile);
+        $employee->update(['name' => $originalName]);
     }
 }
