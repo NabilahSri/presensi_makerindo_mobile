@@ -20,5 +20,5 @@ description: >-
 
 ## 3. Verifikasi
 - `composer --working-dir=apps/server audit --locked --no-interaction`
-- `npm --prefix apps/server audit --omit=dev --audit-level=high`
+- `npm --prefix apps/server audit --workspaces=false --omit=dev --audit-level=high`
 - `gitleaks protect --staged --redact --config .gitleaks.toml`

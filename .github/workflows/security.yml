@@ -60,7 +60,7 @@ jobs:
           node-version: '22'
 
       - name: npm audit (production dependencies, high+)
-        run: npm audit --omit=dev --audit-level=high
+        run: npm audit --workspaces=false --omit=dev --audit-level=high
 
   dependency-review:
     name: Dependency review (PRs)

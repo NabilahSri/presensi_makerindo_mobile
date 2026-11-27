@@ -82,7 +82,7 @@ sync staging-main -> branch kerja -> commit kecil -> pre-pr-check -> push branch
    - [`commit-msg`](.githooks/commit-msg): Memvalidasi format Conventional Commits (maks 100 karakter) dan memblokir atribusi AI.
    - [`pre-commit`](.githooks/pre-commit): Memblokir file terlarang (`.env`, kunci privat `.pem`/`.key`/`.p12`/`.pfx`, file `.sql`/`.sqlite`), menjalankan `gitleaks` (bila terpasang), memeriksa gaya kode PHP (`php vendor/bin/pint --test` pada file `.php` ter-stage di `apps/server/`), dan menjalankan `npm run build` saat aset frontend berubah.
 2. **CI Pipeline** ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)):
-   - `lint`: `composer validate --no-check-publish --no-check-lock` dan Laravel Pint `--test` pada `apps/server`.
+   - `lint`: `composer validate --no-check-publish` dan Laravel Pint `--test` pada `apps/server`.
    - `test-build`: Vite production build (`npm run build`), migrasi + seeder SQLite, dan `php artisan test`.
    - Check gabungan **`CI Gate`**.
 3. **PR Policy** ([`.github/workflows/pr-policy.yml`](.github/workflows/pr-policy.yml)):
