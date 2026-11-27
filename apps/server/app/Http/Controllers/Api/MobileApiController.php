@@ -871,26 +871,17 @@ class MobileApiController extends Controller
                     ],
                 ], 422);
             }
-        } elseif ($type === 'IZIN') {
+        } elseif (in_array($type, ['IZIN', 'WFA'], true)) {
             $minStart = $today->copy()->addDay();
+            $label = $type === 'WFA' ? 'WFA/WFH' : 'Izin';
             if ($startDate->lt($minStart)) {
                 $minFormatted = $minStart->translatedFormat('d M Y');
 
                 return response()->json([
                     'success' => false,
-                    'message' => "Pengajuan Izin harus dilakukan minimal 1 hari sebelumnya. Tanggal mulai paling cepat adalah {$minFormatted}.",
+                    'message' => "Pengajuan {$label} harus dilakukan minimal 1 hari sebelumnya. Tanggal mulai paling cepat adalah {$minFormatted}.",
                     'errors' => [
-                        'start_date' => ["Pengajuan Izin minimal 1 hari sebelumnya (mulai {$minStart->toDateString()})."],
-                    ],
-                ], 422);
-            }
-        } elseif ($type === 'WFA') {
-            if ($startDate->lt($today)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Pengajuan WFA tidak dapat menggunakan tanggal yang sudah lewat.',
-                    'errors' => [
-                        'start_date' => ["Tanggal mulai WFA minimal hari ini ({$today->toDateString()})."],
+                        'start_date' => ["Pengajuan {$label} minimal 1 hari sebelumnya (mulai {$minStart->toDateString()})."],
                     ],
                 ], 422);
             }

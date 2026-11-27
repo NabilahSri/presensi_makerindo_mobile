@@ -55,7 +55,7 @@
                         <select id="approval_filter_type" name="type"
                             class="w-full h-[42px] px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-xs font-semibold focus:bg-white focus:outline-none focus:ring-2 focus:ring-sky-600 focus:border-sky-600 transition">
                             <option value="">Semua Jenis Pengajuan</option>
-                            <option value="WFA" {{ ($type ?? '') === 'WFA' ? 'selected' : '' }}>WFA</option>
+                            <option value="WFA" {{ ($type ?? '') === 'WFA' ? 'selected' : '' }}>WFA / WFH (Min. H-1)</option>
                             <option value="CUTI" {{ ($type ?? '') === 'CUTI' ? 'selected' : '' }}>Cuti (Min. H-7)</option>
                             <option value="TUGAS_LUAR" {{ ($type ?? '') === 'TUGAS_LUAR' ? 'selected' : '' }}>Tugas Luar</option>
                             <option value="SAKIT" {{ ($type ?? '') === 'SAKIT' ? 'selected' : '' }}>Sakit (Persetujuan Otomatis)</option>
