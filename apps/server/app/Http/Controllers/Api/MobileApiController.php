@@ -885,36 +885,40 @@ class MobileApiController extends Controller
                     ],
                 ], 422);
             }
-        } elseif ($type === 'TUGAS_LUAR') {
+        } elseif ($type === 'TUGAS_LUAR' || $type === 'SAKIT') {
             if ($startDate->lt($today)) {
+                $label = $type === 'TUGAS_LUAR' ? 'Tugas Luar' : 'Sakit';
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Pengajuan Tugas Luar tidak dapat menggunakan tanggal yang sudah lewat.',
+                    'message' => "Pengajuan {$label} tidak dapat menggunakan tanggal yang sudah lewat.",
                     'errors' => [
-                        'start_date' => ["Tanggal mulai Tugas Luar minimal hari ini ({$today->toDateString()})."],
+                        'start_date' => ["Tanggal mulai {$label} minimal hari ini ({$today->toDateString()})."],
                     ],
                 ], 422);
             }
-        } elseif ($type === 'SAKIT') {
-            $alreadyPresent = Attendance::where('user_id', $user->id)
-                ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
-                ->where(function ($q) {
-                    $q->whereNotNull('time_in')
-                        ->orWhereIn('status', ['CUTI', 'SAKIT', 'IZIN']);
-                })
-                ->orderBy('date', 'asc')
-                ->first();
 
-            if ($alreadyPresent) {
-                $conflictDate = Carbon::parse($alreadyPresent->date)->translatedFormat('d M Y');
+            if ($type === 'SAKIT') {
+                $alreadyPresent = Attendance::where('user_id', $user->id)
+                    ->whereBetween('date', [$startDate->toDateString(), $endDate->toDateString()])
+                    ->where(function ($q) {
+                        $q->whereNotNull('time_in')
+                            ->orWhereIn('status', ['CUTI', 'SAKIT', 'IZIN']);
+                    })
+                    ->orderBy('date', 'asc')
+                    ->first();
 
-                return response()->json([
-                    'success' => false,
-                    'message' => "Pengajuan Sakit tidak dapat dilakukan karena Anda sudah tercatat hadir atau berizin pada tanggal {$conflictDate}.",
-                    'errors' => [
-                        'start_date' => ["Anda sudah melakukan presensi masuk atau berizin pada tanggal {$conflictDate} sehingga tidak dapat mengajukan Sakit pada tanggal tersebut."],
-                    ],
-                ], 422);
+                if ($alreadyPresent) {
+                    $conflictDate = Carbon::parse($alreadyPresent->date)->translatedFormat('d M Y');
+
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Pengajuan Sakit tidak dapat dilakukan karena Anda sudah tercatat hadir atau berizin pada tanggal {$conflictDate}.",
+                        'errors' => [
+                            'start_date' => ["Anda sudah melakukan presensi masuk atau berizin pada tanggal {$conflictDate} sehingga tidak dapat mengajukan Sakit pada tanggal tersebut."],
+                        ],
+                    ], 422);
+                }
             }
         }
 

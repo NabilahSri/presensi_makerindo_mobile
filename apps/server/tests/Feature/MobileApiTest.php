@@ -1104,16 +1104,31 @@ class MobileApiTest extends TestCase
         $employee = User::where('email', 'karyawan@test.com')->first();
         $token = $employee->createToken('edge-policy-test')->plainTextToken;
         $plus10Days = now()->addDays(10)->toDateString();
-        $pastSakitDate = now()->subDays(10)->toDateString();
-        Attendance::where('user_id', $employee->id)->whereDate('date', $pastSakitDate)->delete();
+        $pastSakitDate = now()->subDay()->toDateString();
+        $todaySakitDate = now()->toDateString();
+        Attendance::where('user_id', $employee->id)->whereDate('date', $todaySakitDate)->delete();
+        LeaveRequest::where('user_id', $employee->id)
+            ->whereDate('start_date', '<=', $todaySakitDate)
+            ->whereDate('end_date', '>=', $todaySakitDate)
+            ->delete();
 
-        // 1. SAKIT bersifat fleksibel (tanpa batas mundur 7 hari) selama belum ada presensi masuk/izin bentrok
+        // 1. SAKIT tidak bisa memilih tanggal mundur (sudah lewat), minimal mulai hari ini dan langsung auto-approve
         $this->withHeader('Authorization', 'Bearer '.$token)
             ->postJson('/api/leaves', [
                 'type' => 'SAKIT',
                 'start_date' => $pastSakitDate,
                 'end_date' => $pastSakitDate,
-                'reason' => 'Sakit dirawat 10 hari lalu',
+                'reason' => 'Sakit kemarin harus ditolak',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('start_date');
+
+        $this->withHeader('Authorization', 'Bearer '.$token)
+            ->postJson('/api/leaves', [
+                'type' => 'SAKIT',
+                'start_date' => $todaySakitDate,
+                'end_date' => $todaySakitDate,
+                'reason' => 'Demam hari ini',
             ])
             ->assertStatus(201)
             ->assertJsonPath('auto_approved', true)
