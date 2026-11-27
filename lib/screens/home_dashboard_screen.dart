@@ -858,7 +858,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               : 'Pengajuan Cuti, Tugas Luar & Izin',
           subtitle: user.uiFlags.showLeaveApprovalMenu
               ? 'Ajukan izin pribadi dan tinjau pengajuan pegawai lain'
-              : 'Cuti (H-7), Izin (H-1), WFA/Tugas Luar, atau Sakit (Otomatis Disetujui)',
+              : 'Cuti (H-7), Izin & WFA/WFH (H-1), Tugas Luar, atau Sakit (Otomatis Disetujui)',
           trailingBadge: (user.uiFlags.showLeaveApprovalMenu && _pendingApprovals > 0)
               ? ChronoStatusTag(
                   label: '$_pendingApprovals Menunggu',

@@ -977,8 +977,8 @@ class _CreateLeaveSheetState extends State<_CreateLeaveSheet> {
   DateTime _minStartDateForType(String type) {
     return switch (type) {
       'CUTI' => _todayOnly.add(const Duration(days: 7)),
-      'IZIN' => _todayOnly.add(const Duration(days: 1)),
-      'TUGAS_LUAR' || 'WFA' => _todayOnly,
+      'IZIN' || 'WFA' => _todayOnly.add(const Duration(days: 1)),
+      'TUGAS_LUAR' => _todayOnly,
       _ => DateTime(2020, 1, 1), // SAKIT fleksibel tanpa batas 7 hari
     };
   }
@@ -986,7 +986,7 @@ class _CreateLeaveSheetState extends State<_CreateLeaveSheet> {
   DateTime _defaultStartDateForType(String type) {
     return switch (type) {
       'CUTI' => _todayOnly.add(const Duration(days: 7)),
-      'IZIN' => _todayOnly.add(const Duration(days: 1)),
+      'IZIN' || 'WFA' => _todayOnly.add(const Duration(days: 1)),
       _ => _todayOnly,
     };
   }
@@ -1002,7 +1002,7 @@ class _CreateLeaveSheetState extends State<_CreateLeaveSheet> {
           false,
         ),
       'WFA' => (
-          'Pengajuan WFA dapat diajukan mulai hari ini dan menunggu persetujuan atasan. Setelah disetujui, presensi dapat dilakukan melalui Kamera & GPS.',
+          'Pengajuan WFA/WFH wajib dilakukan minimal 1 hari sebelumnya (H-1) dan menunggu persetujuan atasan. Setelah disetujui, presensi dapat dilakukan melalui Kamera & GPS.',
           false,
         ),
       'TUGAS_LUAR' => (
