@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# Pre-commit hook (Server): block secrets/forbidden files, run gitleaks, Pint, and Vite build check.
+set -euo pipefail
+
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$staged" ] && exit 0
+
+# 1. Blokir file terlarang (.env, kunci privat, dump SQL, database SQLite)
+bad=$(echo "$staged" | grep -E '(^|/)\.env($|\.)|\.(pem|key|p12|pfx)$|\.sql$|\.sqlite3?$' | grep -vE '(^|/)\.env\.example$' || true)
+if [ -n "$bad" ]; then
+  echo "✖ Commit diblokir: file terlarang akan ikut ter-commit:" >&2
+  echo "$bad" | sed 's/^/    /' >&2
+  echo "  (.env, kunci privat, dump SQL, dan file SQLite tidak boleh masuk repo)" >&2
+  exit 1
+fi
+
+# 2. Pemindaian secret pada perubahan ter-stage (jika gitleaks tersedia)
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --redact --config .gitleaks.toml --no-banner || {
+    echo "✖ gitleaks menemukan potensi secret pada perubahan yang di-stage." >&2
+    exit 1
+  }
+else
+  echo "⚠ gitleaks tidak terpasang; pemindaian secret lokal dilewati (CI tetap memindai)." >&2
+fi
+
+# 3. Laravel Pint pada file PHP ter-stage di apps/server
+php_files=$(echo "$staged" | grep -E '^apps/server/.*\.php$' | sed 's|^apps/server/||' || true)
+if [ -n "$php_files" ] && [ -f apps/server/vendor/bin/pint ]; then
+  (
+    cd apps/server
+    # shellcheck disable=SC2086
+    php vendor/bin/pint --test $php_files >/dev/null 2>&1 || {
+      echo "✖ Gaya kode PHP (Laravel Pint) gagal. Jalankan dari root: npm run lint:fix" >&2
+      exit 1
+    }
+  )
+fi
+
+# 4. Cek build frontend (Vite) jika aset CSS/JS/Vite/package berubah
+frontend_staged=$(echo "$staged" | grep -E '^(apps/server/(resources/(js|css)/|package\.json|package-lock\.json|vite\.config\.js)|package\.json)$' || true)
+if [ -n "$frontend_staged" ]; then
+  if ! npm run build >/dev/null 2>&1; then
+    echo "✖ Build frontend (npm run build) gagal. Periksa error sebelum commit." >&2
+    exit 1
+  fi
+fi
+
+exit 0

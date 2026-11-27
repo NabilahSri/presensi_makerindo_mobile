@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Strict pre-push hook (Server): block direct push, force-push, and deletion of protected branches.
+set -euo pipefail
+
+zero=0000000000000000000000000000000000000000
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  branch_name="${remote_ref#refs/heads/}"
+
+  # 1. Blokir penghapusan branch inti terlindungi
+  if [ "$local_sha" = "$zero" ]; then
+    if [[ "$branch_name" == "main" || "$branch_name" == "staging-main" ]]; then
+      echo "✖ Penghapusan branch terlindungi '$branch_name' diblokir." >&2
+      exit 1
+    fi
+  fi
+
+  # 2. Blokir direct push ke branch inti terlindungi (harus lewat Pull Request)
+  if [[ "$remote_ref" =~ ^refs/heads/(main|staging-main)$ ]]; then
+    echo "✖ Direct push ke '$branch_name' diblokir." >&2
+    echo "  Gunakan branch kerja (feat/*, fix/*, dll.) lalu buat PR ke 'staging-main', atau promosikan via scripts/promote." >&2
+    exit 1
+  fi
+
+  # 3. Blokir force-push destruktif pada branch mana pun
+  if [ "$remote_sha" != "$zero" ] && [ "$local_sha" != "$zero" ]; then
+    if ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+      echo "✖ Force-push terdeteksi pada '$branch_name'. Diblokir demi integritas riwayat git." >&2
+      echo "  Lakukan merge/rebase lokal lalu lakukan push normal." >&2
+      exit 1
+    fi
+  fi
+done
+
+exit 0

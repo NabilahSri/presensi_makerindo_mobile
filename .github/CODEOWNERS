@@ -1,0 +1,16 @@
+# Default owner untuk seluruh file. Tambahkan kolaborator lain setelah bergabung,
+# mis. `/apps/server/app/Http/ @NabilahSri @kolaborator1` (TODO: tambah username tim).
+*                                       @NabilahSri
+
+# Area sensitif keamanan, CI/CD, migrasi, & dependensi: wajib review pemilik.
+/.github/                               @NabilahSri
+/.githooks/                             @NabilahSri
+/apps/server/config/                    @NabilahSri
+/apps/server/database/migrations/       @NabilahSri
+/apps/server/app/Http/Middleware/       @NabilahSri
+/apps/server/routes/                    @NabilahSri
+/apps/server/composer.json              @NabilahSri
+/apps/server/composer.lock              @NabilahSri
+/apps/server/package.json               @NabilahSri
+/apps/server/package-lock.json          @NabilahSri
+/package.json                           @NabilahSri

@@ -1,0 +1,12 @@
+title = "Presensi Makerindo (Server) gitleaks config"
+
+[extend]
+useDefault = true
+
+# Test fixtures use throwaway credentials/tokens that only exist inside automated tests.
+# Scoped to tests/ only: application code is never allowlisted.
+[allowlist]
+description = "Throwaway fixture credentials in Laravel tests"
+paths = [
+  '''^apps/server/tests/''',
+]

@@ -2,45 +2,102 @@ name: CI Server (Laravel Web & API)
 
 on:
   push:
-    branches: [main]
-    paths:
-      - 'apps/server/**'
-      - 'package.json'
-      - '.github/workflows/ci.yml'
+    branches: [main, staging-main]
   pull_request:
-    branches: [main]
-    paths:
-      - 'apps/server/**'
-      - 'package.json'
-      - '.github/workflows/ci.yml'
+    branches: [main, staging-main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-server-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PHP_VERSION: '8.5'
+  NODE_VERSION: '22'
+  COMPOSER_NO_INTERACTION: '1'
 
 jobs:
-  server-ci:
+  lint:
+    name: Lint (Composer validate + Pint)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: apps/server
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.5'
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+          tools: composer:v2
+
+      - name: Validate composer.json
+        run: composer validate --no-check-publish --no-check-lock
+
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer/files
+          key: composer-${{ runner.os }}-${{ hashFiles('apps/server/composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Run Laravel Pint (style check)
+        run: ./vendor/bin/pint --test
+
+  test-build:
+    name: Build (Vite) + PHPUnit (SQLite)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/server
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
           extensions: mbstring, xml, ctype, iconv, intl, pdo_sqlite, sqlite3
           coverage: none
+          tools: composer:v2
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: apps/server/package-lock.json
 
+      - name: Cache Composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer/files
+          key: composer-${{ runner.os }}-${{ hashFiles('apps/server/composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
       - name: Install Composer dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Install NPM dependencies & build assets
+        run: |
+          npm ci --workspaces=false
+          npm run build
 
       - name: Prepare environment & SQLite
         run: |
@@ -50,13 +107,21 @@ jobs:
           php artisan migrate --force
           php artisan db:seed --force
 
-      - name: Install NPM dependencies & build assets
-        run: |
-          npm ci --workspaces=false
-          npm run build
-
-      - name: Run Laravel Pint (style check)
-        run: ./vendor/bin/pint --test
-
       - name: Run PHPUnit tests
         run: php artisan test
+
+  # Satu status check stabil untuk dijadikan required check di GitHub Branch Protection.
+  ci-gate:
+    name: CI Gate
+    if: always()
+    needs: [lint, test-build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Verify all required CI jobs passed
+        env:
+          LINT: ${{ needs.lint.result }}
+          TEST_BUILD: ${{ needs.test-build.result }}
+        run: |
+          echo "lint=$LINT test-build=$TEST_BUILD"
+          [ "$LINT" = "success" ] && [ "$TEST_BUILD" = "success" ]
