@@ -14,7 +14,7 @@ Perbaikan keamanan diterapkan pada branch aktif berikut di repositori `NabilahSr
 **Jangan membuka issue publik untuk kerentanan keamanan.** Gunakan salah satu jalur privat berikut:
 
 1. GitHub → tab **Security** → **Report a vulnerability** (Private Vulnerability Reporting): `https://github.com/NabilahSri/presensi_makerindo_mobile/security/advisories/new`.
-2. Email kontak keamanan proyek: `TODO: <security-contact-email>`
+2. Email kontak keamanan proyek (Fullstack Developer / Maintainer): `muhamadhabilputrawan@gmail.com`
 
 Sertakan: deskripsi masalah, langkah reproduksi, dampak (misal kebocoran token lokal, bypass validasi lokasi/izin, kebocoran kredensial rilis), serta commit/branch terkait.
 
@@ -30,7 +30,7 @@ Target respons: konfirmasi awal ≤ 3 hari kerja, penilaian awal ≤ 7 hari.
 ## Jika Secret atau Keystore Terlanjur Ter-commit
 
 1. **Rotasi / cabut** token API atau buat keystore rilis baru segera (menghapus di commit baru tidak membersihkan histori Git).
-2. Beri tahu pemilik repositori (`@NabilahSri`).
+2. Beri tahu pemilik repositori (`@NabilahSri`) dan Fullstack Maintainer (`@muhamadhabilputrawan`).
 3. Pembersihan histori Git dilakukan hanya atas keputusan pemilik repositori.
 
 ## Kontrol Otomatis

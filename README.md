@@ -98,3 +98,10 @@ Pengaturan default di `lib/services/api_service.dart`:
 | [`release.yml`](.github/workflows/release.yml) | Push tag `mobile-v*` | Membuat GitHub Release otomatis untuk rilis mobile |
 
 Kebijakan kerentanan dan penanganan keystore ada di [SECURITY.md](SECURITY.md), alur kontribusi di [CONTRIBUTING.md](CONTRIBUTING.md), dan lisensi di [LICENSE](LICENSE).
+
+---
+
+## Tim & Maintainer
+
+- **Repository Owner:** `@NabilahSri`
+- **Fullstack Developer & Maintainer:** Muhamad Habil Putrawan (`@muhamadhabilputrawan` — `muhamadhabilputrawan@gmail.com`)

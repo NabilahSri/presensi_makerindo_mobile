@@ -1,12 +1,11 @@
-# Default owner untuk seluruh file mobile. Tambahkan kolaborator lain setelah bergabung,
-# mis. `/lib/services/ @NabilahSri @kolaborator1` (TODO: tambah username tim).
-*                                       @NabilahSri
+# Default owner & fullstack maintainer untuk seluruh file mobile.
+*                                       @NabilahSri @muhamadhabilputrawan
 
-# Area sensitif keamanan, CI/CD, native config, & dependensi: wajib review pemilik.
-/.github/                               @NabilahSri
-/.githooks/                             @NabilahSri
-/android/                               @NabilahSri
-/ios/                                   @NabilahSri
-/lib/services/                          @NabilahSri
-/pubspec.yaml                           @NabilahSri
-/pubspec.lock                           @NabilahSri
+# Area sensitif keamanan, CI/CD, native config, & dependensi: wajib review owner/maintainer.
+/.github/                               @NabilahSri @muhamadhabilputrawan
+/.githooks/                             @NabilahSri @muhamadhabilputrawan
+/android/                               @NabilahSri @muhamadhabilputrawan
+/ios/                                   @NabilahSri @muhamadhabilputrawan
+/lib/services/                          @NabilahSri @muhamadhabilputrawan
+/pubspec.yaml                           @NabilahSri @muhamadhabilputrawan
+/pubspec.lock                           @NabilahSri @muhamadhabilputrawan

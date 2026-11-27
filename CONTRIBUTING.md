@@ -18,8 +18,8 @@ Repository `NabilahSri/presensi_makerindo_mobile` memisahkan kode **Mobile Flutt
 
 | Branch | Fungsi Utama | Sumber Perubahan | Persetujuan |
 |---|---|---|---|
-| **`staging-mobile`** | Integrasi fitur, pengujian QC Android/iOS sebelum rilis mobile. | PR dari branch kerja (`feat/*`, `feature/*`, `fix/*`, `chore/*`, `docs/*`, `refactor/*`, `test/*`) | Maintainer (`@NabilahSri`) |
-| **`mobile`** | Kode stabil aplikasi Flutter (`lib/`, `android/`, `ios/`, `test/`). | Promotion PR dari `staging-mobile` (atau `hotfix/*` darurat) | Repository Owner (`@NabilahSri`) |
+| **`staging-mobile`** | Integrasi fitur, pengujian QC Android/iOS sebelum rilis mobile. | PR dari branch kerja (`feat/*`, `feature/*`, `fix/*`, `chore/*`, `docs/*`, `refactor/*`, `test/*`) | Fullstack Maintainer (`@muhamadhabilputrawan`) & Owner (`@NabilahSri`) |
+| **`mobile`** | Kode stabil aplikasi Flutter (`lib/`, `android/`, `ios/`, `test/`). | Promotion PR dari `staging-mobile` (atau `hotfix/*` darurat) | Repository Owner (`@NabilahSri`) & `@muhamadhabilputrawan` |
 
 > **ATURAN WAJIB**: Dilarang melakukan direct push ke `staging-mobile` maupun `mobile`, dan dilarang menggabungkan branch `main` / `staging-main` ke track mobile.
 
