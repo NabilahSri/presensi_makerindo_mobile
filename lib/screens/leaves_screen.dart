@@ -978,8 +978,7 @@ class _CreateLeaveSheetState extends State<_CreateLeaveSheet> {
     return switch (type) {
       'CUTI' => _todayOnly.add(const Duration(days: 7)),
       'IZIN' || 'WFA' => _todayOnly.add(const Duration(days: 1)),
-      'TUGAS_LUAR' => _todayOnly,
-      _ => DateTime(2020, 1, 1), // SAKIT fleksibel tanpa batas 7 hari
+      _ => _todayOnly, // TUGAS_LUAR & SAKIT minimal hari ini (tanggal mundur tidak diperbolehkan)
     };
   }
 
@@ -1010,7 +1009,7 @@ class _CreateLeaveSheetState extends State<_CreateLeaveSheet> {
           false,
         ),
       _ => (
-          'Pengajuan Sakit langsung disetujui otomatis tanpa perlu menunggu persetujuan atasan dan langsung tercatat pada presensi.',
+          'Pengajuan Sakit mulai hari ini atau ke depan (tidak dapat tanggal mundur) langsung disetujui otomatis tanpa perlu menunggu persetujuan atasan.',
           true,
         ),
     };
