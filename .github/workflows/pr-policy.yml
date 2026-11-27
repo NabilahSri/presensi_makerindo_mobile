@@ -1,0 +1,114 @@
+name: PR Policy (Mobile)
+
+on:
+  pull_request:
+    branches: [mobile, staging-mobile]
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+  push:
+    branches: [mobile, staging-mobile]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-policy-mobile-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  policy:
+    name: PR Policy & Branch Flow Validation (Mobile)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate PR title, branch flow, and attribution
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          fail=0
+          echo "Validating PR from '$HEAD_REF' into '$BASE_REF'..."
+
+          # 1. Conventional Commits title format
+          if ! printf '%s' "$PR_TITLE" | grep -qE '^(feat|fix|refactor|style|test|docs|chore|ci|perf|build)(\([a-z0-9._/-]+\))?!?: .{3,}$'; then
+            echo "::error::Judul PR harus Conventional Commits, mis. 'feat(mobile): tambah validasi foto pulang'"; fail=1
+          fi
+
+          # 2. Prevent cross-track merge between main and mobile
+          if [ "$HEAD_REF" = "main" ] || [ "$HEAD_REF" = "staging-main" ]; then
+            echo "::error::Dilarang menggabungkan branch '$HEAD_REF' (Laravel) ke track '$BASE_REF' (Flutter)."; fail=1
+          fi
+
+          # 3. 2-Tier Branch Flow Validation (work branch -> staging-mobile -> mobile)
+          if [ "$BASE_REF" = "staging-mobile" ]; then
+            if ! printf '%s' "$HEAD_REF" | grep -qE '^(feat|feature|fix|chore|docs|refactor|test|hotfix|dependabot)/[A-Za-z0-9._/-]+$'; then
+              echo "::error::PR ke 'staging-mobile' harus berasal dari branch feat|feature|fix|chore|docs|refactor|test|hotfix/<topik>"; fail=1
+            fi
+          elif [ "$BASE_REF" = "mobile" ]; then
+            if [ "$HEAD_REF" != "staging-mobile" ] && ! printf '%s' "$HEAD_REF" | grep -qE '^hotfix/[A-Za-z0-9._/-]+$'; then
+              echo "::error::PR ke 'mobile' hanya boleh berasal dari 'staging-mobile' (promosi QC) atau hotfix/<topik> darurat."; fail=1
+            fi
+          fi
+
+          # 4. Block AI attribution markers
+          if printf '%s' "$PR_BODY" | grep -qiE '(co-authored-by:.*(claude|gemini|copilot|chatgpt|openai|anthropic)|generated (with|by) (claude|gemini|copilot|chatgpt))'; then
+            echo "::error::Hapus atribusi AI dari deskripsi PR (aturan proyek)"; fail=1
+          fi
+
+          exit $fail
+
+      - name: Block forbidden files in the diff
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          files=$(git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$HEAD_SHA")
+          bad=$(printf '%s\n' "$files" | grep -E '(^|/)\.env($|\.)|\.(jks|keystore|pem|key|p12|pfx)$|(^|/)key\.properties$|(^|/)google-services\.json$|(^|/)GoogleService-Info\.plist$' | grep -vE '(^|/)\.env\.example$' || true)
+          if [ -n "$bad" ]; then
+            echo "::error::File terlarang di PR (env/keystore/kunci/firebase config):"; printf '%s\n' "$bad"; exit 1
+          fi
+
+      - name: Flag sensitive paths for maintainer attention
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          sens=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" | grep -E '^(\.github/|\.githooks/|android/|ios/|lib/services/|pubspec\.(yaml|lock))' || true)
+          if [ -n "$sens" ]; then
+            echo "::warning::PR menyentuh area sensitif mobile. Wajib review teliti oleh maintainer:"; printf '%s\n' "$sens"
+          fi
+
+  branch-guard:
+    name: Collaborator & direct push guard
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Validate actor permissions
+        env:
+          ACTOR: ${{ github.actor }}
+          OWNER: ${{ github.repository_owner }}
+          REF: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Validating push to '$REF' by actor '$ACTOR'..."
+          if [ "$ACTOR" = "$OWNER" ] || [ "$ACTOR" = "github-actions[bot]" ]; then
+            echo "OK: Owner or automation actor verified."
+            exit 0
+          fi
+
+          perm=$(gh api "repos/$REPO/collaborators/$ACTOR/permission" --jq '.permission' 2>/dev/null || echo "write")
+          if [ "$perm" = "none" ]; then
+            echo "::error::Aktor '$ACTOR' tidak memiliki izin tulis pada repositori ini."
+            exit 1
+          fi
+          echo "OK: Collaborator '$ACTOR' has permission '$perm'."

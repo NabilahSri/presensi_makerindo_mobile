@@ -1,0 +1,32 @@
+name: Bug report (Mobile)
+description: Laporkan bug pada aplikasi mobile Flutter (JANGAN untuk kerentanan keamanan, lihat SECURITY.md)
+labels: [bug, mobile]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: Apa yang terjadi?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Langkah reproduksi
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Hasil yang diharapkan
+  - type: input
+    id: device
+    attributes:
+      label: Perangkat & OS (mis. Android 14 / iOS 17 / Emulator)
+  - type: input
+    id: role
+    attributes:
+      label: Peran pengguna (karyawan / intern / approver)
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log / screenshot (tanpa token, foto pribadi, atau secret)

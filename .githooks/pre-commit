@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Pre-commit hook (Mobile): block secrets/keystores, run gitleaks, dart format, and flutter analyze.
+set -euo pipefail
+
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$staged" ] && exit 0
+
+# 1. Blokir file terlarang (.env, keystore, key.properties, kunci privat, firebase config)
+bad=$(echo "$staged" | grep -E '(^|/)\.env($|\.)|\.(jks|keystore|pem|key|p12|pfx)$|(^|/)key\.properties$|(^|/)google-services\.json$|(^|/)GoogleService-Info\.plist$' | grep -vE '(^|/)\.env\.example$' || true)
+if [ -n "$bad" ]; then
+  echo "✖ Commit diblokir: file sensitif/keystore akan ikut ter-commit:" >&2
+  echo "$bad" | sed 's/^/    /' >&2
+  echo "  (.env, keystore, key.properties, kunci privat, dan konfigurasi secret tidak boleh masuk repo)" >&2
+  exit 1
+fi
+
+# 2. Pemindaian secret pada perubahan ter-stage (jika gitleaks tersedia)
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --redact --config .gitleaks.toml --no-banner || {
+    echo "✖ gitleaks menemukan potensi secret pada perubahan yang di-stage." >&2
+    exit 1
+  }
+else
+  echo "⚠ gitleaks tidak terpasang; pemindaian secret lokal dilewati (CI tetap memindai)." >&2
+fi
+
+# 3. Format check & static analysis untuk file Dart ter-stage
+dart_files=$(echo "$staged" | grep -E '\.dart$' || true)
+if [ -n "$dart_files" ]; then
+  if command -v dart >/dev/null 2>&1; then
+    # shellcheck disable=SC2086
+    dart format --output=none --set-exit-if-changed $dart_files >/dev/null 2>&1 || {
+      echo "✖ Format Dart belum rapi pada file yang di-stage. Jalankan: dart format $(echo "$dart_files" | tr '\n' ' ')" >&2
+      exit 1
+    }
+  fi
+  if command -v flutter >/dev/null 2>&1; then
+    # shellcheck disable=SC2086
+    flutter analyze $dart_files >/dev/null 2>&1 || {
+      echo "✖ flutter analyze menemukan issue. Jalankan: flutter analyze" >&2
+      exit 1
+    }
+  fi
+fi
+
+exit 0

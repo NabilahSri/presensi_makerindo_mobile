@@ -1,0 +1,12 @@
+# Default owner untuk seluruh file mobile. Tambahkan kolaborator lain setelah bergabung,
+# mis. `/lib/services/ @NabilahSri @kolaborator1` (TODO: tambah username tim).
+*                                       @NabilahSri
+
+# Area sensitif keamanan, CI/CD, native config, & dependensi: wajib review pemilik.
+/.github/                               @NabilahSri
+/.githooks/                             @NabilahSri
+/android/                               @NabilahSri
+/ios/                                   @NabilahSri
+/lib/services/                          @NabilahSri
+/pubspec.yaml                           @NabilahSri
+/pubspec.lock                           @NabilahSri

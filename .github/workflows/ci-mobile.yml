@@ -2,17 +2,28 @@ name: CI Mobile (Flutter)
 
 on:
   push:
-    branches: [mobile]
+    branches: [mobile, staging-mobile]
   pull_request:
-    branches: [mobile]
+    branches: [mobile, staging-mobile]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-mobile-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   mobile-ci:
+    name: Flutter Format, Analyze & Test
     runs-on: ubuntu-latest
-
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -23,8 +34,27 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Check Dart formatting (advisory)
+        continue-on-error: true
+        run: dart format --output=none --set-exit-if-changed .
+
       - name: Analyze Dart code
         run: flutter analyze
 
       - name: Run Flutter tests
         run: flutter test
+
+  # Satu status check stabil dengan nama seragam untuk GitHub Branch Protection.
+  ci-gate:
+    name: CI Gate
+    if: always()
+    needs: [mobile-ci]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Verify all required mobile CI jobs passed
+        env:
+          MOBILE_CI: ${{ needs.mobile-ci.result }}
+        run: |
+          echo "mobile-ci=$MOBILE_CI"
+          [ "$MOBILE_CI" = "success" ]
