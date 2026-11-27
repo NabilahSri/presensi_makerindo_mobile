@@ -168,8 +168,10 @@ Sebelum membuka Pull Request ke `staging-main`, jalankan quality gate lengkap:
 
 ---
 
-## Berkontribusi & Lisensi
+## Tim, Kontribusi & Lisensi
 
+- **Repository Owner:** `@NabilahSri`
+- **Fullstack Developer & Maintainer:** Muhamad Habil Putrawan (`@muhamadhabilputrawan` — `muhamadhabilputrawan@gmail.com`)
 - Baca [CONTRIBUTING.md](CONTRIBUTING.md) untuk alur kerja harian (`setup-dev` → `dev-sync` → commit → `pre-pr-check` → PR ke `staging-main`).
 - Kode etik kontributor mengikuti [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 - Lisensi proyek tercantum pada [LICENSE](LICENSE).

@@ -1,16 +1,15 @@
-# Default owner untuk seluruh file. Tambahkan kolaborator lain setelah bergabung,
-# mis. `/apps/server/app/Http/ @NabilahSri @kolaborator1` (TODO: tambah username tim).
-*                                       @NabilahSri
+# Default owner & fullstack maintainer untuk seluruh file.
+*                                       @NabilahSri @muhamadhabilputrawan
 
-# Area sensitif keamanan, CI/CD, migrasi, & dependensi: wajib review pemilik.
-/.github/                               @NabilahSri
-/.githooks/                             @NabilahSri
-/apps/server/config/                    @NabilahSri
-/apps/server/database/migrations/       @NabilahSri
-/apps/server/app/Http/Middleware/       @NabilahSri
-/apps/server/routes/                    @NabilahSri
-/apps/server/composer.json              @NabilahSri
-/apps/server/composer.lock              @NabilahSri
-/apps/server/package.json               @NabilahSri
-/apps/server/package-lock.json          @NabilahSri
-/package.json                           @NabilahSri
+# Area sensitif keamanan, CI/CD, migrasi, & dependensi: wajib review owner/maintainer.
+/.github/                               @NabilahSri @muhamadhabilputrawan
+/.githooks/                             @NabilahSri @muhamadhabilputrawan
+/apps/server/config/                    @NabilahSri @muhamadhabilputrawan
+/apps/server/database/migrations/       @NabilahSri @muhamadhabilputrawan
+/apps/server/app/Http/Middleware/       @NabilahSri @muhamadhabilputrawan
+/apps/server/routes/                    @NabilahSri @muhamadhabilputrawan
+/apps/server/composer.json              @NabilahSri @muhamadhabilputrawan
+/apps/server/composer.lock              @NabilahSri @muhamadhabilputrawan
+/apps/server/package.json               @NabilahSri @muhamadhabilputrawan
+/apps/server/package-lock.json          @NabilahSri @muhamadhabilputrawan
+/package.json                           @NabilahSri @muhamadhabilputrawan

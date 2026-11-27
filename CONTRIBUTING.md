@@ -18,8 +18,8 @@ Repository `NabilahSri/presensi_makerindo_mobile` memisahkan kode **Server/Web**
 
 | Branch | Fungsi Utama | Sumber Perubahan | Persetujuan |
 |---|---|---|---|
-| **`staging-main`** | Integrasi fitur, pengujian QC Web Portal & API sebelum rilis. | PR dari branch kerja (`feat/*`, `feature/*`, `fix/*`, `chore/*`, `docs/*`, `refactor/*`, `test/*`) | Maintainer (`@NabilahSri`) |
-| **`main`** | Kode stabil Web Portal & Backend REST API (`apps/server`). | Promotion PR dari `staging-main` (atau `hotfix/*` darurat) | Repository Owner (`@NabilahSri`) |
+| **`staging-main`** | Integrasi fitur, pengujian QC Web Portal & API sebelum rilis. | PR dari branch kerja (`feat/*`, `feature/*`, `fix/*`, `chore/*`, `docs/*`, `refactor/*`, `test/*`) | Fullstack Maintainer (`@muhamadhabilputrawan`) & Owner (`@NabilahSri`) |
+| **`main`** | Kode stabil Web Portal & Backend REST API (`apps/server`). | Promotion PR dari `staging-main` (atau `hotfix/*` darurat) | Repository Owner (`@NabilahSri`) & `@muhamadhabilputrawan` |
 
 > **ATURAN WAJIB**: Dilarang melakukan direct push ke `staging-main` maupun `main`, dan dilarang menggabungkan branch `mobile` / `staging-mobile` ke track server.
 
