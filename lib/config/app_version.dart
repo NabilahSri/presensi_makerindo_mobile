@@ -1,6 +1,5 @@
 /// Versi aplikasi Mobile Presensi Makerindo.
-/// File ini diperbarui otomatis oleh GitHub Actions (.github/workflows/auto-version.yml)
-/// pada setiap push ke branch main/master.
+/// Diperbarui saat rilis versi aplikasi (menggunakan tag mobile-v* pada branch mobile).
 class AppVersion {
   AppVersion._();
 
